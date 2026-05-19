@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Project data — never commit live audit logs or user data
+data/audit.log
+data/audit.log.*
+data/toolkit.db
+data/toolkit.db-*
+data/chroma_db/
+
+# Keep schema + framework CSVs committed
+!data/schema.sql
+!data/frameworks/
+
+# Reports
+reports/*.pdf
+reports/*.html
+
+# Logs
+*.log
+logs/
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
