@@ -130,10 +130,23 @@ cp .env.example .env
 python scripts/init_db.py
 python scripts/load_frameworks.py
 
-# 5. Run the MCP server
+# 5. Generate an API key (once) and export it — the server won't start without one
+python scripts/generate_api_key.py
+export PCT_MCP_API_KEY="<the key it prints>"   # Windows PowerShell: $env:PCT_MCP_API_KEY="..."
+
+# 6. Run the MCP server (HTTP, authenticated)
 python -m src.mcp_server.server
-# Listening on 127.0.0.1:8765
+# Listening on 127.0.0.1:8765 — every request needs Authorization: Bearer <key>
 ```
+
+Calls must carry the key:
+
+```bash
+curl -H "Authorization: Bearer $PCT_MCP_API_KEY" http://127.0.0.1:8765/...
+```
+
+See [docs/SECURITY.md](docs/SECURITY.md) for the auth gate, rate limiting, key
+rotation procedure, and what's deferred (encryption, monitoring, patching).
 
 Tests:
 
@@ -190,6 +203,7 @@ privacy-compliance-toolkit/
 - GDPR CSV with all 99 articles
 - Framework loader with schema validation
 - Basic FastMCP server: `list_frameworks`, `get_article`, `search_frameworks`
+- MCP server hardening: API-key gate (constant-time, `secrets`-generated, env-only), per-key rate limiting, audited denials, `docs/SECURITY.md`
 - Smoke tests
 
 ### v1 — Intelligence

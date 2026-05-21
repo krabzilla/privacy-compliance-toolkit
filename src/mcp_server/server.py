@@ -232,18 +232,44 @@ def search_frameworks(query: str, limit: int = 10) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Authenticated HTTP app factory
+# ---------------------------------------------------------------------------
+#
+# The security layer (auth + rate limiting) lives in middleware.py, which is
+# deliberately free of any FastMCP dependency so it can be tested over real
+# HTTP on its own. Here we just attach it to the FastMCP HTTP app.
+
+from .auth import require_configured  # noqa: E402
+from .middleware import SecurityMiddleware  # noqa: E402
+
+
+def build_app():  # pragma: no cover - exercised at runtime, not in unit tests
+    """
+    Build the authenticated HTTP ASGI app.
+
+    Fails loud if no API key is configured (secure default). The exact FastMCP
+    factory name varies by version; http_app() is current. For TLS, terminate
+    at uvicorn (ssl_keyfile/ssl_certfile) or a reverse proxy.
+    """
+    require_configured()
+    app = mcp.http_app()
+    app.add_middleware(SecurityMiddleware)
+    return app
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
+def main() -> None:  # pragma: no cover
+    import uvicorn
+
     print(
-        f"Privacy Compliance Toolkit MCP — listening on {CONFIG.mcp_host}:{CONFIG.mcp_port}",
+        f"Privacy Compliance Toolkit MCP (HTTP, authenticated) -- "
+        f"listening on {CONFIG.mcp_host}:{CONFIG.mcp_port}"
     )
-    # FastMCP's transport options vary by version; stdio is the safest default
-    # for local development. Swap to mcp.run(transport='sse', host=..., port=...)
-    # once the front-end is wired up in v2.
-    mcp.run()
+    uvicorn.run(build_app(), host=CONFIG.mcp_host, port=CONFIG.mcp_port)
 
 
 if __name__ == "__main__":  # pragma: no cover

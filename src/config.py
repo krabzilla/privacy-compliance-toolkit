@@ -56,6 +56,13 @@ class Config:
     mcp_host: str
     mcp_port: int
 
+    # ---- MCP auth / rate limiting ----
+    # The API key is NEVER hard-coded. It is read from the environment only.
+    # Generate one with scripts/generate_api_key.py and export PCT_MCP_API_KEY.
+    mcp_api_key: str
+    mcp_rate_limit_requests: int
+    mcp_rate_limit_window_s: int
+
     @classmethod
     def from_env(cls) -> "Config":
         data_dir = Path(_env("PCT_DATA_DIR", "./data")).resolve()
@@ -76,8 +83,11 @@ class Config:
             confidence_threshold=_env_float("PCT_CONFIDENCE_THRESHOLD", 0.75),
             mcp_host=_env("PCT_MCP_HOST", "127.0.0.1"),
             mcp_port=_env_int("PCT_MCP_PORT", 8765),
+            mcp_api_key=_env("PCT_MCP_API_KEY", ""),
+            mcp_rate_limit_requests=_env_int("PCT_MCP_RATE_LIMIT_REQUESTS", 60),
+            mcp_rate_limit_window_s=_env_int("PCT_MCP_RATE_LIMIT_WINDOW_S", 60),
         )
 
 
-# Module-level singleton — import this everywhere, do not re-read env elsewhere.
+# Module-level singleton -- import this everywhere, do not re-read env elsewhere.
 CONFIG = Config.from_env()
