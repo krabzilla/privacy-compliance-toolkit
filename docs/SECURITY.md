@@ -52,6 +52,7 @@ not the appearance of completeness.
 |------|--------|------|
 | **Encryption at rest** | Not implemented. SQLite + audit log are plaintext on disk. | v1: SQLCipher for the DB; OS-level disk encryption for logs. |
 | **Encryption in transit (TLS)** | Not implemented. HTTP only. | v2: terminate TLS at uvicorn (`ssl_keyfile`/`ssl_certfile`) or a reverse proxy. |
+| **Network allowlist (client IP)** | Not implemented. Server binds to `127.0.0.1`, so it is unreachable off-host -- the bind address is the current control. | v2: IP/CIDR allowlist enforced at the middleware edge, alongside TLS and a reverse proxy, once the server binds to a network interface. |
 | **Key rotation** | Manual (see below). | v2: support multiple valid keys with overlap windows for zero-downtime rotation. |
 | **Active monitoring / alerting** | Only audit logging exists (forensic, not real-time). | v2: `/metrics` endpoint (request count, p95 latency, guardrail-violation count) + alert rules. |
 | **Dependency patching** | Manual; loose version pins. | v2: Dependabot config + `pip-audit` in CI; pin and review. |
