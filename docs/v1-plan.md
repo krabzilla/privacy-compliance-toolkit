@@ -80,34 +80,70 @@ milestone and still have a working improvement over v0.1.
 
 | Milestone | Theme | Independently useful as | Key new files |
 |-----------|-------|-------------------------|---------------|
-| v1.0 | Two more frameworks loaded | "the librarian, now multi-jurisdictional" | `data/frameworks/danish_dpa.csv`, `data/frameworks/nist_csf_2.csv` |
+| v1.0a | Privacy supplement + security baseline | "the librarian, multi-jurisdictional" | `data/frameworks/danish_dpa.csv`, `data/frameworks/nist_csf_2.csv` |
+| v1.0b | Privacy extension + sector framework | "security-meets-privacy + healthcare" | `data/frameworks/iso_27701.csv`, `data/frameworks/hipaa.csv` |
 | v1.1 | Semantic retrieval | "search that understands meaning" | `src/rag/embeddings.py`, `src/rag/vector_store.py` |
 | v1.2 | LLM wrapper + RAG generation | "answers grounded in citable rules" | `src/llm/client.py`, `src/rag/engine.py` |
 | v1.3 | Compliance/risk modes + reviewer queue | "the analyst with human sign-off" | `src/rag/assess.py`, schema additions |
 | v1.4 | PDF reports + guardrail upgrades | "the polished deliverable" | `src/reports/pdf.py`, NER PII, classifier injection |
 
-### v1.0 — Two more frameworks
-**Goal:** Danish DPA and NIST CSF 2.0 are loaded and queryable via the
-existing v0 MCP tools (`list_frameworks`, `get_article`, `search_frameworks`).
-No RAG yet.
+### v1.0 — Framework expansion (split into v1.0a and v1.0b)
+**Goal:** load four additional frameworks so the toolkit covers a privacy
+supplement, a security baseline, the privacy-extension to ISO 27001, and a
+sector-specific regime. No RAG yet. Shipped as two commits because v1.0b
+also extends the citation verifier, which is a real code change rather than
+pure data.
 
+**Schema:** unchanged across both. The existing `frameworks` and `articles`
+tables support arbitrary frameworks.
+
+#### v1.0a — Privacy supplement + security baseline (data-only)
 **Files:**
 - `data/frameworks/danish_dpa.csv` (new) — Danish supplements/derogations to
   GDPR. Author-drafted summaries with the same verify-against-source caveat
   used for GDPR.
 - `data/frameworks/nist_csf_2.csv` (new) — Functions / Categories /
   Subcategories.
-- `src/frameworks/loader.py` — enable both entries in `FRAMEWORK_REGISTRY`.
+- `src/frameworks/loader.py` — enable both in `FRAMEWORK_REGISTRY`.
 - `tests/test_framework_loader.py` — add loader tests for both new CSVs.
 
-**Schema:** unchanged. The existing `frameworks` and `articles` tables already
-support arbitrary frameworks.
-
-**Acceptance:**
+**Acceptance (v1.0a):**
 - `list_frameworks` returns three rows.
-- `get_article("NIST CSF", "GV.OC-01")` and `get_article("Danish DPA", "§ 5")`
-  return the row content, redacted and citation-verified.
-- All existing tests still pass.
+- `get_article("NIST CSF", "GV.OC-01")` and
+  `get_article("Danish DPA", "§ 5")` return content, redacted and
+  citation-verified.
+- All v0.1 tests still pass.
+
+#### v1.0b — Privacy extension + sector framework (data + verifier extension)
+**Files:**
+- `data/frameworks/iso_27701.csv` (new) — ISO/IEC 27701:2019 privacy
+  information management controls (the privacy extension to 27001/27002).
+  Thematic bullseye for the project: once the RAG layer lands, this enables
+  queries like "which ISO 27701 controls demonstrate GDPR Art. 32 compliance?"
+- `data/frameworks/hipaa.csv` (new) — US HIPAA Privacy Rule + Security Rule
+  (45 CFR Parts 160 and 164). Sector-specific (healthcare); broad recognition.
+- `src/frameworks/loader.py` — enable both in `FRAMEWORK_REGISTRY`.
+- `tests/test_framework_loader.py` — add loader tests for both new CSVs.
+- `src/guardrails/output.py` — **extend `_CITATION_RE`** to recognize ISO
+  27701 control IDs (e.g., `A.5.1.1`, `A.7.4.5`) and HIPAA citations
+  (e.g., `45 CFR § 164.502`, `HIPAA Privacy Rule § 164.502(a)`). The
+  normalization function also needs ISO/HIPAA-aware tokenization so valid
+  surface-form variants are accepted (same pattern as the v0.1 GDPR fix).
+- `tests/test_adversarial.py` — add citation tests for the new formats:
+  valid variants accepted, canonical fakes rejected, and (importantly) the
+  *negative* test that an ISO/HIPAA citation phrased outside the regex still
+  slips through — i.e. the same `xfail(strict=True)` discipline the GDPR
+  case uses. This is the non-canonical-hallucination case that v1.2's
+  structured-citation emission closes universally.
+
+**Acceptance (v1.0b):**
+- `list_frameworks` returns five rows.
+- `get_article("ISO 27701", "A.5.1.1")` and
+  `get_article("HIPAA", "45 CFR § 164.502")` return verified content.
+- Adversarial: valid ISO/HIPAA citation variants accepted; canonical
+  fakes (`ISO 27701 A.99.99.99`, `45 CFR § 999.999`) rejected;
+  non-canonical phrasing remains `xfail` until v1.2.
+- All v0.1 + v1.0a tests still pass.
 
 ### v1.1 — Embeddings + vector store
 **Goal:** semantic retrieval over the three frameworks. Keyword `LIKE` is
@@ -342,13 +378,18 @@ CREATE TABLE review_queue (
 - **Vector store:** ChromaDB, persistent on disk under `data/chroma/`.
 - **Citation discipline:** structured JSON field, not regex-from-prose.
 - **Reviewer queue UI:** deferred to v2.
-- **Commit cadence:** five incremental commits (v1.0 – v1.4), each a
-  reviewable unit.
+- **Commit cadence:** incremental commits (v1.0a, v1.0b, v1.1 – v1.4), each
+  a reviewable unit.
+- **Framework set for v1:** GDPR (v0), Danish DPA + NIST CSF 2.0 (v1.0a),
+  ISO 27701 + HIPAA (v1.0b). Five frameworks total. EU AI Act, CCPA/CPRA,
+  and additional jurisdictions evaluated and deferred -- accuracy cost on
+  in-flux laws (AI Act phased application, CPRA amendments) outweighed the
+  breadth signal for v1. Reconsider for v2 alongside the dashboard.
 
 ---
 
 ## When v1 is done
-A reviewer can: load three frameworks; ask "is this processing activity
+A reviewer can: load five frameworks; ask "is this processing activity
 compliant under GDPR?"; receive an answer or a refusal with citations that
 provably trace back to the loaded framework rows; have a low-confidence
 finding land in a queue for human sign-off; and walk away with a PDF report
