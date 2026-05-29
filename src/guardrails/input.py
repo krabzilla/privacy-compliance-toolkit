@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import socket
 from urllib.parse import urlparse
 
 from ..config import CONFIG
@@ -50,6 +51,18 @@ def _is_blocked_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     )
 
 
+def _resolve_host(host: str) -> list[str]:
+    """
+    Resolve a hostname to all of its IP addresses.
+
+    Pulled out as a module-level function so tests can inject deterministic
+    results instead of hitting real DNS, and so v1 can reuse the same resolution
+    to PIN the IP it actually fetches (defeating DNS-rebinding / TOCTOU).
+    """
+    infos = socket.getaddrinfo(host, None)
+    return [info[4][0] for info in infos]
+
+
 def validate_url(url: str) -> str:
     """
     SSRF-safe URL validation. Returns the normalised URL.
@@ -73,14 +86,46 @@ def validate_url(url: str) -> str:
     if host in _METADATA_HOSTS:
         raise GuardrailViolation(f"host {host!r} is a cloud-metadata endpoint")
 
-    # If host is a literal IP, validate it directly.
+    # If host is a literal IP, validate it directly -- no resolution needed.
     try:
         ip = ipaddress.ip_address(host)
     except ValueError:
         ip = None
 
-    if ip is not None and _is_blocked_ip(ip):
-        raise GuardrailViolation(f"IP {host!r} is in a blocked range (RFC1918 / loopback / link-local)")
+    if ip is not None:
+        if _is_blocked_ip(ip):
+            raise GuardrailViolation(
+                f"IP {host!r} is in a blocked range (RFC1918 / loopback / link-local)"
+            )
+        return parsed.geturl()
+
+    # Host is a NAME -- or an obfuscated IP encoding (32-bit integer, hex, octal,
+    # trailing-dot). Resolve it and re-check EVERY resolved address against the
+    # blocklist. Fail closed: if it will not resolve, we cannot prove it is safe.
+    #
+    # NOTE (v1): this closes name-based SSRF but not TOCTOU / DNS-rebinding (the
+    # name could resolve differently between this check and a later fetch). The
+    # complete fix pins the resolved IP and fetches that exact address. There is
+    # no fetch path in v0, so resolution-time checking is the correct scope.
+    try:
+        resolved = _resolve_host(host)
+    except OSError as e:  # socket.gaierror is an OSError subclass
+        raise GuardrailViolation(
+            f"could not resolve host {host!r} for SSRF check (failing closed)"
+        ) from e
+    if not resolved:
+        raise GuardrailViolation(f"host {host!r} resolved to no addresses")
+    for addr in resolved:
+        try:
+            rip = ipaddress.ip_address(addr.split("%", 1)[0])  # strip IPv6 zone id
+        except ValueError as e:
+            raise GuardrailViolation(
+                f"host {host!r} resolved to unparseable address {addr!r}"
+            ) from e
+        if _is_blocked_ip(rip):
+            raise GuardrailViolation(
+                f"host {host!r} resolves to blocked IP {addr} (SSRF)"
+            )
 
     return parsed.geturl()
 

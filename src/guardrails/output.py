@@ -95,8 +95,33 @@ def extract_citations(text: str) -> list[str]:
     return [m.group(0).strip() for m in _CITATION_RE.finditer(text or "")]
 
 
+def _normalize_citation(citation: str) -> str:
+    """
+    Canonical comparison form so equivalent surface forms collapse together.
+    'GDPR Article 6', 'GDPR Art. 6' and 'GDPR Art.  6' all map to 'gdpr art 6'.
+    """
+    s = (citation or "").strip().lower()
+    s = s.replace(".", " ")                    # 'art.' -> 'art '
+    s = re.sub(r"\barticles?\b", "art", s)     # 'article'/'articles' -> 'art'
+    s = re.sub(r"\s+", " ", s).strip()          # collapse whitespace
+    return s
+
+
 def verify_citations(text: str, known_references: Iterable[str]) -> list[str]:
-    """Return citations in text that are NOT in known_references. Empty = all valid."""
-    known = {r.strip().lower() for r in known_references}
+    """
+    Return citations in text that are NOT in known_references. Empty = all valid.
+
+    Comparison uses _normalize_citation so a VALID citation written in a
+    different-but-equivalent surface form is not wrongly rejected (false
+    positive). The original surface string is returned for any bad citation so
+    error messages stay readable.
+
+    KNOWN LIMITATION (deferred to v1): only citations matching _CITATION_RE are
+    extracted at all. A hallucinated citation phrased outside that pattern
+    (e.g. "Article 250 of the GDPR") is never extracted, so it is not caught
+    here. v1 closes this by having the LLM emit citations in a structured field
+    instead of free prose, removing the dependence on regex extraction.
+    """
+    known = {_normalize_citation(r) for r in known_references}
     found = extract_citations(text)
-    return [c for c in found if c.lower() not in known]
+    return [c for c in found if _normalize_citation(c) not in known]

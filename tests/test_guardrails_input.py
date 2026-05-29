@@ -12,7 +12,12 @@ from src.guardrails.input import (
 
 
 class TestValidateURL:
-    def test_accepts_https(self) -> None:
+    def test_accepts_https(self, monkeypatch) -> None:
+        # Inject a public IP so this stays deterministic and offline; the SSRF
+        # check resolves the hostname and re-checks every resolved address.
+        import src.guardrails.input as gi
+
+        monkeypatch.setattr(gi, "_resolve_host", lambda host: ["93.184.216.34"])
         assert validate_url("https://example.com/path") == "https://example.com/path"
 
     def test_rejects_non_http(self) -> None:
