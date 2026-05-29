@@ -86,6 +86,7 @@ milestone and still have a working improvement over v0.1.
 | v1.2 | LLM wrapper + RAG generation | "answers grounded in citable rules" | `src/llm/client.py`, `src/rag/engine.py` |
 | v1.3 | Compliance/risk modes + reviewer queue | "the analyst with human sign-off" | `src/rag/assess.py`, schema additions |
 | v1.4 | PDF reports + guardrail upgrades | "the polished deliverable" | `src/reports/pdf.py`, NER PII, classifier injection |
+| v1.5 | Interpretive sources (case law + regulatory guidance) | "statute plus the binding rulings and authoritative guidance that define what statute means" | `data/sources/interpretive_sources.csv`, schema additions, `src/rag/engine.py` updates |
 
 ### v1.0 — Framework expansion (split into v1.0a and v1.0b)
 **Goal:** load four additional frameworks so the toolkit covers a privacy
@@ -315,6 +316,127 @@ CREATE TABLE review_queue (
   returns a hit (was `xfail`; now passes).
 - Full suite: zero `xfailed`. Order-independent.
 
+### v1.5 — Interpretive sources (case law + regulatory guidance)
+**Goal:** the toolkit reasons over statute *and* the interpretive sources
+that define what statute means in practice -- binding case law and DPA
+enforcement decisions *plus* authoritative regulatory guidance (EDPB
+guidelines, national DPA guidance). Lands after v1.4 because (a) the RAG
+layer (v1.2) is what makes interpretive retrieval useful, and (b) it is
+large enough to deserve a clean dedicated milestone rather than scope creep
+on v1.4.
+
+Practitioner mental model: read the article -> check EDPB / DPA guidance ->
+look for case law if the matter is disputed. A tool that knows only statute
+is incomplete; this milestone closes that gap.
+
+A **unified `interpretive_sources` schema** covers all sub-types via a
+`type` column (`case_law` | `dpa_decision` | `edpb_guideline` |
+`dpa_guidance`) and a `binding` flag. The RAG prompt template conditions
+on type so the legal weight stays visible in answers:
+  - "The following is *binding case law from the CJEU* -- cite as
+    authority; distinguish from the rule itself."
+  - "The following is *non-binding EDPB guidance* -- cite as authoritative
+    best-practice interpretation, not as the rule."
+
+**Files:**
+- `data/schema.sql` -- new `interpretive_sources` and `source_interprets`
+  tables (see *Schema additions* below).
+- `data/sources/interpretive_sources.csv` (new) -- curated initial corpus
+  of ~25-35 entries spanning case law, DPA decisions, and EDPB guidance.
+  Author-drafted summaries, same verify-against-source caveat as framework
+  CSVs. Likely set:
+    - **CJEU case law:** Schrems I (C-362/14), Schrems II (C-311/18),
+      Google Spain (C-131/12), Planet49 (C-673/17), Bodil Lindqvist
+      (C-101/01), Breyer v Germany (C-582/14).
+    - **National DPA decisions:** Datatilsynet Helsingor Municipality;
+      CNIL Google cookies (60M EUR); ICO Clearview AI; Irish DPC Meta
+      transfers; selected Spanish AEPD consent decisions.
+    - **EDPB guidance:** Guidelines 5/2020 on consent; Guidelines 7/2020
+      on controllers/processors; Recommendations 01/2020 on supplementary
+      measures (the post-Schrems-II practitioner reference); Guidelines
+      9/2022 on personal data breach notification; Guidelines 04/2022 on
+      calculation of administrative fines.
+- `src/frameworks/loader.py` -- new `load_interpretive_sources_csv`
+  (different schema from `load_framework_csv`; reuses the gateway-audited
+  write pattern; sets `binding` automatically from `type`).
+- `src/guardrails/output.py` -- extend `_CITATION_RE` and the normalizer to
+  recognize:
+    - case-law formats: `CJEU C-NN/NN`, `Case C-NN/NN`,
+    - DPA decision formats: `Datatilsynet J.nr. NNNN-NN-NNNN`,
+      `CNIL deliberation No. NNNN-NNN`, `ICO ENF NNNNNN`,
+    - EDPB guidance formats: `EDPB Guidelines NN/YYYY`,
+      `EDPB Recommendations NN/YYYY`, `WP29 Guidelines WPNNN`.
+  Adversarial tests for each format land in the same commit (same
+  discipline as v1.0b).
+- `src/rag/vector_store.py` -- interpretive sources embedded into Chroma
+  in a separate collection per type, so retrieval can weight or filter by
+  source type.
+- `src/rag/engine.py` -- type-aware prompt template; retrieved sources are
+  marked with their type and `binding` status, and the structured response
+  must cite statute / case law / guidance in **separate** fields so the
+  verifier and the PDF report can render them distinctly.
+- `src/mcp_server/server.py` -- new tools:
+    - `find_interpretive_sources(framework, reference, *, type=None)` --
+      what interprets this article? Optionally filtered by type.
+    - `ask_with_interpretation(question, framework, *,
+      include_guidance=True, include_case_law=True)` -- RAG over statute
+      plus selected interpretive sources.
+- `tests/test_sources_loader.py` (new), `tests/test_interpretation_rag.py`
+  (new), and adversarial citation tests for each new format in
+  `tests/test_adversarial.py`.
+
+**Schema additions:**
+```sql
+CREATE TABLE interpretive_sources (
+    id INTEGER PRIMARY KEY,
+    type TEXT NOT NULL CHECK (type IN (
+        'case_law',
+        'dpa_decision',
+        'edpb_guideline',
+        'dpa_guidance'
+    )),
+    authority TEXT NOT NULL,        -- e.g. 'CJEU', 'EDPB', 'CNIL', 'Datatilsynet'
+    jurisdiction TEXT NOT NULL,     -- e.g. 'EU', 'France', 'Denmark'
+    title TEXT NOT NULL,
+    identifier TEXT NOT NULL UNIQUE,-- canonical citation (C-311/18,
+                                    -- Guidelines 5/2020, etc.)
+    issue_date TEXT NOT NULL,       -- ISO date
+    summary TEXT NOT NULL,
+    binding INTEGER NOT NULL CHECK (binding IN (0, 1)),
+    source_url TEXT,
+    body_hash TEXT NOT NULL
+);
+CREATE TABLE source_interprets (
+    source_id INTEGER NOT NULL
+        REFERENCES interpretive_sources(id) ON DELETE CASCADE,
+    article_id INTEGER NOT NULL REFERENCES articles(id),
+    PRIMARY KEY (source_id, article_id)
+);
+```
+
+**Acceptance:**
+- `find_interpretive_sources("GDPR", "Art. 6")` returns relevant CJEU
+  rulings (Planet49 for consent), national DPA decisions (CNIL Google
+  cookies), and EDPB guidance (Guidelines 5/2020 on consent), each with
+  its type and `binding` flag.
+- `ask_with_interpretation("can I rely on legitimate interests for
+  marketing cookies?")` returns an answer citing `GDPR Art. 6(1)(f)`,
+  Planet49, *and* EDPB Guidelines 5/2020, with structured fields
+  distinguishing statute / case law / guidance.
+- Adversarial: fabricated citations in any of the new formats are
+  rejected; valid surface-form variants accepted; non-canonical phrasing
+  handled by the structured-field contract from v1.2.
+- Full suite remains order-independent; no new `xfail` markers introduced.
+
+**Honest caveat:** accuracy stakes are *higher* for interpretive sources
+than for statute. A misrepresented CJEU holding or EDPB guideline is more
+damaging in a portfolio piece than a misrepresented article summary. The
+curated corpus is small on purpose; each entry carries its `source_url` so
+a reviewer can verify in one click. EDPB documents in particular are long
+(50-200 pages); summaries capture the headline interpretive principle, not
+full content -- citations always point to the canonical document, not to
+the summary.
+
 ---
 
 ## Cross-cutting concerns
@@ -385,6 +507,16 @@ CREATE TABLE review_queue (
   and additional jurisdictions evaluated and deferred -- accuracy cost on
   in-flux laws (AI Act phased application, CPRA amendments) outweighed the
   breadth signal for v1. Reconsider for v2 alongside the dashboard.
+- **Interpretive sources in v1:** included as v1.5 (after v1.4), unified
+  into one `interpretive_sources` schema covering case law, DPA enforcement
+  decisions, EDPB guidelines, and national DPA guidance. A `type` column
+  and a `binding` flag carry the legal-weight distinction; the RAG prompt
+  template conditions on type so binding rulings are not conflated with
+  non-binding guidance in answers. Considered two alternatives: (a) split
+  case law (v1.5) and guidance (v1.6) into two milestones -- rejected
+  because the schema/loader/verifier work duplicates with no architectural
+  benefit; (b) shoehorn into the articles table -- rejected because it
+  would weaken the citation-trace-back claim.
 
 ---
 
@@ -392,7 +524,8 @@ CREATE TABLE review_queue (
 A reviewer can: load five frameworks; ask "is this processing activity
 compliant under GDPR?"; receive an answer or a refusal with citations that
 provably trace back to the loaded framework rows; have a low-confidence
-finding land in a queue for human sign-off; and walk away with a PDF report
-where every claim is auditable to a row in the database. That's the
+finding land in a queue for human sign-off; walk away with a PDF report
+where every claim is auditable to a row in the database; and ask questions
+that blend statute with the binding case law and authoritative guidance interpreting it. That's the
 intelligence layer — secure, citable, and local. v2 is what makes it
 multi-user and web-facing.
