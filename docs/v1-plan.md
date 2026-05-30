@@ -7,9 +7,12 @@
 ## Scope in one sentence
 v1 turns the toolkit from a **librarian** (find a known article, redact PII,
 verify the citation) into an **analyst** (answer a free-form compliance
-question against multiple frameworks, with citations the system can prove are
-real, and route low-confidence outputs to a human reviewer) — without
-loosening any v0 / v0.1 security posture.
+question against four frameworks, with citations the system can prove are
+real) — without loosening any v0 / v0.1 security posture.
+
+> v1 has been trimmed to its minimum-viable shape after v1.0a shipped. See
+> *Deferred to v2* near the end of this document for what was originally
+> scoped for v1 and is now pushed to v2.
 
 ## What stays sacred
 - The **logging gateway is still the only door to data.** ChromaDB reads/writes
@@ -29,6 +32,11 @@ loosening any v0 / v0.1 security posture.
 - React dashboard / FastAPI orchestrator.
 - Docker Compose / live demo.
 - Encryption at rest (SQLCipher).
+- Assessment modes (compliance-gap / risk-gap) and the reviewer queue --
+  meaningful with the v2 dashboard, not before.
+- PDF report generation (`reportlab`) and the heavy guardrail upgrades
+  (NER PII, classifier-based injection detection).
+- Interpretive sources (case law, DPA decisions, EDPB guidelines).
 
 ---
 
@@ -81,12 +89,13 @@ milestone and still have a working improvement over v0.1.
 | Milestone | Theme | Independently useful as | Key new files |
 |-----------|-------|-------------------------|---------------|
 | v1.0a | Privacy supplement + security baseline | "the librarian, multi-jurisdictional" | `data/frameworks/danish_dpa.csv`, `data/frameworks/nist_csf_2.csv` |
-| v1.0b | Privacy extension + sector framework | "security-meets-privacy + healthcare" | `data/frameworks/iso_27701.csv`, `data/frameworks/hipaa.csv` |
+| v1.0b | Privacy extension (ISO 27701) + citation-verifier extension | "security-meets-privacy thematic bullseye" | `data/frameworks/iso_27701.csv`, `src/guardrails/output.py` (ISO control-ID format) |
 | v1.1 | Semantic retrieval | "search that understands meaning" | `src/rag/embeddings.py`, `src/rag/vector_store.py` |
 | v1.2 | LLM wrapper + RAG generation | "answers grounded in citable rules" | `src/llm/client.py`, `src/rag/engine.py` |
-| v1.3 | Compliance/risk modes + reviewer queue | "the analyst with human sign-off" | `src/rag/assess.py`, schema additions |
-| v1.4 | PDF reports + guardrail upgrades | "the polished deliverable" | `src/reports/pdf.py`, NER PII, classifier injection |
-| v1.5 | Interpretive sources (case law + regulatory guidance) | "statute plus the binding rulings and authoritative guidance that define what statute means" | `data/sources/interpretive_sources.csv`, schema additions, `src/rag/engine.py` updates |
+
+*v1.3 (assessment modes + reviewer queue), v1.4 (PDF reports + guardrail
+upgrades), and v1.5 (interpretive sources) were originally planned for v1
+and are now deferred to v2 -- see the Deferred to v2 section below.*
 
 ### v1.0 — Framework expansion (split into v1.0a and v1.0b)
 **Goal:** load four additional frameworks so the toolkit covers a privacy
@@ -115,36 +124,36 @@ tables support arbitrary frameworks.
   citation-verified.
 - All v0.1 tests still pass.
 
-#### v1.0b — Privacy extension + sector framework (data + verifier extension)
+#### v1.0b — Privacy extension (ISO 27701) + citation-verifier extension
 **Files:**
 - `data/frameworks/iso_27701.csv` (new) — ISO/IEC 27701:2019 privacy
   information management controls (the privacy extension to 27001/27002).
   Thematic bullseye for the project: once the RAG layer lands, this enables
   queries like "which ISO 27701 controls demonstrate GDPR Art. 32 compliance?"
-- `data/frameworks/hipaa.csv` (new) — US HIPAA Privacy Rule + Security Rule
-  (45 CFR Parts 160 and 164). Sector-specific (healthcare); broad recognition.
-- `src/frameworks/loader.py` — enable both in `FRAMEWORK_REGISTRY`.
-- `tests/test_framework_loader.py` — add loader tests for both new CSVs.
-- `src/guardrails/output.py` — **extend `_CITATION_RE`** to recognize ISO
-  27701 control IDs (e.g., `A.5.1.1`, `A.7.4.5`) and HIPAA citations
-  (e.g., `45 CFR § 164.502`, `HIPAA Privacy Rule § 164.502(a)`). The
-  normalization function also needs ISO/HIPAA-aware tokenization so valid
-  surface-form variants are accepted (same pattern as the v0.1 GDPR fix).
-- `tests/test_adversarial.py` — add citation tests for the new formats:
-  valid variants accepted, canonical fakes rejected, and (importantly) the
-  *negative* test that an ISO/HIPAA citation phrased outside the regex still
-  slips through — i.e. the same `xfail(strict=True)` discipline the GDPR
-  case uses. This is the non-canonical-hallucination case that v1.2's
-  structured-citation emission closes universally.
+- `src/frameworks/loader.py` — enable ISO 27701 in `FRAMEWORK_REGISTRY`.
+- `tests/test_framework_loader.py` — add loader tests for ISO 27701.
+- `src/guardrails/output.py` — **extend `_CITATION_RE`** and its normalizer
+  to recognize ISO 27701 control IDs (e.g., `A.5.1.1`, `A.7.4.5`). Same
+  normalization discipline as the v0.1 GDPR fix (collapse whitespace,
+  case-fold, normalize separators) so valid surface-form variants are
+  accepted while fakes are rejected.
+- `tests/test_adversarial.py` — add citation tests for the ISO format:
+  valid variants accepted, canonical fakes (`ISO 27701 A.99.99.99`)
+  rejected, and the *negative* `xfail(strict=True)` test for non-canonical
+  phrasing -- closed universally by v1.2's structured-citation emission.
 
 **Acceptance (v1.0b):**
-- `list_frameworks` returns five rows.
-- `get_article("ISO 27701", "A.5.1.1")` and
-  `get_article("HIPAA", "45 CFR § 164.502")` return verified content.
-- Adversarial: valid ISO/HIPAA citation variants accepted; canonical
-  fakes (`ISO 27701 A.99.99.99`, `45 CFR § 999.999`) rejected;
-  non-canonical phrasing remains `xfail` until v1.2.
+- `list_frameworks` returns four rows (GDPR, Danish DPA, NIST CSF, ISO 27701).
+- `get_article("ISO 27701", "A.5.1.1")` returns verified content.
+- Adversarial: valid ISO 27701 citation variants accepted; canonical fakes
+  rejected; non-canonical phrasing remains `xfail` until v1.2.
 - All v0.1 + v1.0a tests still pass.
+
+**Note:** HIPAA was originally bundled here but was dropped from the v1 plan
+to keep v1.0b narrow. The 45 CFR Part 164 citation format (nested
+subsections, multiple equivalent surface forms) is genuinely more complex
+than ISO's `A.5.1.1` and would double both the regex/normalization work and
+the content-authoring scope. Reconsider after v1 ships.
 
 ### v1.1 — Embeddings + vector store
 **Goal:** semantic retrieval over the three frameworks. Keyword `LIKE` is
@@ -218,224 +227,51 @@ that was the whole point of v0.
   `GDPR Art. 999` makes the engine refuse the response — not pass it through.
 - Tests do not require Ollama running.
 
-### v1.3 — Compliance-gap / risk-gap modes + reviewer queue
-**Goal:** the toolkit can be *asked to assess* a processing activity, returns
-findings classified by type and severity, and routes anything sub-threshold
-to a human reviewer queue.
+## Deferred to v2 (originally scoped for v1)
 
-**Files:**
-- `data/schema.sql` — add `assessments`, `findings`, `review_queue` tables
-  (see *Schema additions* below).
-- `src/rag/assess.py` (new) — `assess_compliance(activity, framework)` and
-  `analyze_gaps(activity, mode)`. Distinct prompt templates per mode;
-  distinct scoring (compliance is binary, risk is contextual). Each finding
-  carries: framework + reference (verified), finding type
-  (`compliance_gap` | `risk_gap`), severity, confidence, summary, full
-  evidence.
-- `src/rag/review.py` (new) — routing rules: a finding goes to the queue if
-  confidence is below `CONFIG.confidence_threshold` *or* type ==
-  `risk_gap`. Queue ops are gateway-audited writes.
-- `src/mcp_server/server.py` — new tools `assess_compliance`,
-  `analyze_gaps`, `list_review_queue`, `resolve_review_item(id, decision,
-  reviewer, note)`.
-- `tests/test_assess.py`, `tests/test_review_queue.py` (new) — fake LLM
-  returning canned findings of each type; assert correct routing.
+After v1.0a shipped, v1 was trimmed to its minimum-viable shape: the thesis
+(librarian -> analyst) plus the framework expansion it sits on. The items
+below were specced for v1 in earlier revisions of this plan and remain
+worthwhile -- they just ship in v2 instead, so v1 stays small,
+well-tested, and unlikely to stall on integration complexity. The original
+detailed specs are preserved in git (commits `ff578f9`, `d8865c0`) and can
+be lifted into a v2 plan without rework.
 
-**Schema additions:**
-```sql
-CREATE TABLE assessments (
-    id INTEGER PRIMARY KEY,
-    created_ts TEXT NOT NULL,
-    framework_id INTEGER NOT NULL REFERENCES frameworks(id),
-    activity TEXT NOT NULL,
-    mode TEXT NOT NULL CHECK (mode IN ('compliance', 'risk')),
-    overall_confidence REAL NOT NULL
-);
-CREATE TABLE findings (
-    id INTEGER PRIMARY KEY,
-    assessment_id INTEGER NOT NULL REFERENCES assessments(id),
-    article_id INTEGER NOT NULL REFERENCES articles(id),
-    type TEXT NOT NULL CHECK (type IN ('compliance_gap', 'risk_gap')),
-    severity TEXT NOT NULL CHECK (severity IN ('low','medium','high')),
-    confidence REAL NOT NULL,
-    summary TEXT NOT NULL,
-    evidence TEXT NOT NULL
-);
-CREATE TABLE review_queue (
-    id INTEGER PRIMARY KEY,
-    finding_id INTEGER NOT NULL REFERENCES findings(id),
-    status TEXT NOT NULL DEFAULT 'pending'
-        CHECK (status IN ('pending','approved','rejected')),
-    queued_ts TEXT NOT NULL,
-    resolved_ts TEXT,
-    reviewer TEXT,
-    note TEXT
-);
-```
+### Was v1.3 -- Assessment modes + reviewer queue
+Compliance-gap and risk-gap detection (different prompts, different
+scoring), the `assessments` / `findings` / `review_queue` schema, and the
+`assess_compliance` / `analyze_gaps` / `list_review_queue` /
+`resolve_review_item` MCP tools. Defers because the reviewer queue is only
+meaningful with a UI to review through, and the dashboard arrives in v2.
 
-**Acceptance:**
-- `assess_compliance("we collect email addresses for marketing without an
-  opt-in", "GDPR")` produces ≥1 finding tied to Art. 6 / Art. 7 with a
-  verified citation.
-- Findings below the confidence threshold land in `review_queue` with
-  `status='pending'`.
-- `resolve_review_item(...)` updates status and `resolved_ts`.
+### Was v1.4 -- PDF reports + guardrail upgrades
+`reportlab`-based PDF report templates (compliance-mode and risk-mode), NER-
+based PII redaction (Presidio or spaCy) behind the existing regex tier,
+classifier-based prompt-injection detection, and `tiktoken` for accurate
+token counting. Defers because each piece adds a real model or library
+dependency. The v0.1 regex-tier PII redaction, the structural prompt-
+injection defense, the citation-trace-back backstop, and the
+4-chars-per-token budget heuristic are all acceptable until v2 invests in
+the upgrades properly. The four `xfail(strict=True)` markers in
+`tests/test_adversarial.py` remain xfail through v1; they flip to passing
+when v2 lands the NER and classifier upgrades.
 
-### v1.4 — PDF reports + guardrail upgrades
-**Goal:** produce the auditable deliverable, and close the four v1-deferred
-`xfail` items in `test_adversarial.py`.
+### Was v1.5 -- Interpretive sources (case law + regulatory guidance)
+Unified `interpretive_sources` schema (`case_law` | `dpa_decision` |
+`edpb_guideline` | `dpa_guidance` with a `binding` flag), curated corpus of
+landmark CJEU rulings, national DPA enforcement decisions, and EDPB
+guidelines, type-aware RAG prompt template, citation-verifier extension for
+case-law and guidance formats, and new MCP tools
+(`find_interpretive_sources`, `ask_with_interpretation`). The most
+ambitious deferred item and the highest accuracy-stakes content; pushed to
+v2 where it sits naturally alongside the dashboard.
 
-**Files:**
-- `src/reports/__init__.py`, `src/reports/pdf.py` (new) — `reportlab`-based
-  generation. Two templates: compliance-mode and risk-mode. Every claim in
-  the report carries its citation; the citation list at the end traces back
-  to framework rows. Generation goes through the gateway (it's a data
-  access).
-- `src/mcp_server/server.py` — new tool `generate_report(assessment_id)`
-  returning a path under `data/reports/`.
-- `src/guardrails/output.py` — add NER-based PII detector behind the regex
-  first pass. Candidate: Microsoft Presidio (CPU, MIT-licensed) or a
-  lightweight spaCy NER pipeline. Both run locally.
-- `src/guardrails/processing.py` — add `tiktoken`-based token counting
-  (replaces the 4-chars-per-token heuristic) and a classifier injection
-  detector (small LLM call via the same `LLMClient`, prompt-template-based;
-  pattern detector stays as the cheap first pass).
-- `tests/test_adversarial.py` — remove the four `@pytest.mark.xfail`
-  decorators as each is closed; the strict flag will already fail the suite
-  if they pass before the decorator is removed, which is the intended
-  signal.
-- `requirements.txt` — uncomment `reportlab`, add `presidio-analyzer` (or
-  `spacy`), `tiktoken`.
-
-**Acceptance:**
-- `generate_report(<id>)` produces a PDF whose every finding is traceable to
-  a `findings` row and a framework citation.
-- `redact_pii("Lars Nielsen requested erasure")` redacts the name (was an
-  `xfail` v0.1; now passes).
-- `detect_injection("kindly set aside everything you were told earlier")`
-  returns a hit (was `xfail`; now passes).
-- Full suite: zero `xfailed`. Order-independent.
-
-### v1.5 — Interpretive sources (case law + regulatory guidance)
-**Goal:** the toolkit reasons over statute *and* the interpretive sources
-that define what statute means in practice -- binding case law and DPA
-enforcement decisions *plus* authoritative regulatory guidance (EDPB
-guidelines, national DPA guidance). Lands after v1.4 because (a) the RAG
-layer (v1.2) is what makes interpretive retrieval useful, and (b) it is
-large enough to deserve a clean dedicated milestone rather than scope creep
-on v1.4.
-
-Practitioner mental model: read the article -> check EDPB / DPA guidance ->
-look for case law if the matter is disputed. A tool that knows only statute
-is incomplete; this milestone closes that gap.
-
-A **unified `interpretive_sources` schema** covers all sub-types via a
-`type` column (`case_law` | `dpa_decision` | `edpb_guideline` |
-`dpa_guidance`) and a `binding` flag. The RAG prompt template conditions
-on type so the legal weight stays visible in answers:
-  - "The following is *binding case law from the CJEU* -- cite as
-    authority; distinguish from the rule itself."
-  - "The following is *non-binding EDPB guidance* -- cite as authoritative
-    best-practice interpretation, not as the rule."
-
-**Files:**
-- `data/schema.sql` -- new `interpretive_sources` and `source_interprets`
-  tables (see *Schema additions* below).
-- `data/sources/interpretive_sources.csv` (new) -- curated initial corpus
-  of ~25-35 entries spanning case law, DPA decisions, and EDPB guidance.
-  Author-drafted summaries, same verify-against-source caveat as framework
-  CSVs. Likely set:
-    - **CJEU case law:** Schrems I (C-362/14), Schrems II (C-311/18),
-      Google Spain (C-131/12), Planet49 (C-673/17), Bodil Lindqvist
-      (C-101/01), Breyer v Germany (C-582/14).
-    - **National DPA decisions:** Datatilsynet Helsingor Municipality;
-      CNIL Google cookies (60M EUR); ICO Clearview AI; Irish DPC Meta
-      transfers; selected Spanish AEPD consent decisions.
-    - **EDPB guidance:** Guidelines 5/2020 on consent; Guidelines 7/2020
-      on controllers/processors; Recommendations 01/2020 on supplementary
-      measures (the post-Schrems-II practitioner reference); Guidelines
-      9/2022 on personal data breach notification; Guidelines 04/2022 on
-      calculation of administrative fines.
-- `src/frameworks/loader.py` -- new `load_interpretive_sources_csv`
-  (different schema from `load_framework_csv`; reuses the gateway-audited
-  write pattern; sets `binding` automatically from `type`).
-- `src/guardrails/output.py` -- extend `_CITATION_RE` and the normalizer to
-  recognize:
-    - case-law formats: `CJEU C-NN/NN`, `Case C-NN/NN`,
-    - DPA decision formats: `Datatilsynet J.nr. NNNN-NN-NNNN`,
-      `CNIL deliberation No. NNNN-NNN`, `ICO ENF NNNNNN`,
-    - EDPB guidance formats: `EDPB Guidelines NN/YYYY`,
-      `EDPB Recommendations NN/YYYY`, `WP29 Guidelines WPNNN`.
-  Adversarial tests for each format land in the same commit (same
-  discipline as v1.0b).
-- `src/rag/vector_store.py` -- interpretive sources embedded into Chroma
-  in a separate collection per type, so retrieval can weight or filter by
-  source type.
-- `src/rag/engine.py` -- type-aware prompt template; retrieved sources are
-  marked with their type and `binding` status, and the structured response
-  must cite statute / case law / guidance in **separate** fields so the
-  verifier and the PDF report can render them distinctly.
-- `src/mcp_server/server.py` -- new tools:
-    - `find_interpretive_sources(framework, reference, *, type=None)` --
-      what interprets this article? Optionally filtered by type.
-    - `ask_with_interpretation(question, framework, *,
-      include_guidance=True, include_case_law=True)` -- RAG over statute
-      plus selected interpretive sources.
-- `tests/test_sources_loader.py` (new), `tests/test_interpretation_rag.py`
-  (new), and adversarial citation tests for each new format in
-  `tests/test_adversarial.py`.
-
-**Schema additions:**
-```sql
-CREATE TABLE interpretive_sources (
-    id INTEGER PRIMARY KEY,
-    type TEXT NOT NULL CHECK (type IN (
-        'case_law',
-        'dpa_decision',
-        'edpb_guideline',
-        'dpa_guidance'
-    )),
-    authority TEXT NOT NULL,        -- e.g. 'CJEU', 'EDPB', 'CNIL', 'Datatilsynet'
-    jurisdiction TEXT NOT NULL,     -- e.g. 'EU', 'France', 'Denmark'
-    title TEXT NOT NULL,
-    identifier TEXT NOT NULL UNIQUE,-- canonical citation (C-311/18,
-                                    -- Guidelines 5/2020, etc.)
-    issue_date TEXT NOT NULL,       -- ISO date
-    summary TEXT NOT NULL,
-    binding INTEGER NOT NULL CHECK (binding IN (0, 1)),
-    source_url TEXT,
-    body_hash TEXT NOT NULL
-);
-CREATE TABLE source_interprets (
-    source_id INTEGER NOT NULL
-        REFERENCES interpretive_sources(id) ON DELETE CASCADE,
-    article_id INTEGER NOT NULL REFERENCES articles(id),
-    PRIMARY KEY (source_id, article_id)
-);
-```
-
-**Acceptance:**
-- `find_interpretive_sources("GDPR", "Art. 6")` returns relevant CJEU
-  rulings (Planet49 for consent), national DPA decisions (CNIL Google
-  cookies), and EDPB guidance (Guidelines 5/2020 on consent), each with
-  its type and `binding` flag.
-- `ask_with_interpretation("can I rely on legitimate interests for
-  marketing cookies?")` returns an answer citing `GDPR Art. 6(1)(f)`,
-  Planet49, *and* EDPB Guidelines 5/2020, with structured fields
-  distinguishing statute / case law / guidance.
-- Adversarial: fabricated citations in any of the new formats are
-  rejected; valid surface-form variants accepted; non-canonical phrasing
-  handled by the structured-field contract from v1.2.
-- Full suite remains order-independent; no new `xfail` markers introduced.
-
-**Honest caveat:** accuracy stakes are *higher* for interpretive sources
-than for statute. A misrepresented CJEU holding or EDPB guideline is more
-damaging in a portfolio piece than a misrepresented article summary. The
-curated corpus is small on purpose; each entry carries its `source_url` so
-a reviewer can verify in one click. EDPB documents in particular are long
-(50-200 pages); summaries capture the headline interpretive principle, not
-full content -- citations always point to the canonical document, not to
-the summary.
+### What v1 still delivers
+Semantic retrieval over four frameworks (GDPR, Danish DPA, NIST CSF 2.0,
+ISO 27701); free-form privacy/compliance questions answered with citations
+that provably trace back to loaded rows; hallucinated citations refused
+rather than returned; the whole stack running locally with no cloud
+dependencies. That is the intelligence layer in its smallest honest form.
 
 ---
 
@@ -503,10 +339,18 @@ the summary.
 - **Commit cadence:** incremental commits (v1.0a, v1.0b, v1.1 – v1.4), each
   a reviewable unit.
 - **Framework set for v1:** GDPR (v0), Danish DPA + NIST CSF 2.0 (v1.0a),
-  ISO 27701 + HIPAA (v1.0b). Five frameworks total. EU AI Act, CCPA/CPRA,
-  and additional jurisdictions evaluated and deferred -- accuracy cost on
-  in-flux laws (AI Act phased application, CPRA amendments) outweighed the
-  breadth signal for v1. Reconsider for v2 alongside the dashboard.
+  ISO 27701 (v1.0b). Four frameworks total. EU AI Act, CCPA/CPRA,
+  additional jurisdictions, and HIPAA evaluated and deferred -- accuracy
+  cost (in-flux laws like AI Act phased application; HIPAA's nested CFR
+  citation format and Privacy/Security Rule content volume) outweighed
+  the breadth signal for v1. Reconsider after v1 ships.
+- **Minimum-viable v1:** trimmed to v1.0a + v1.0b + v1.1 + v1.2 after
+  v1.0a shipped. v1.3 (assessment modes + reviewer queue), v1.4 (PDF
+  reports + guardrail upgrades), and v1.5 (interpretive sources) all
+  deferred to v2 -- see *Deferred to v2*. Reason: this is the author's
+  first portfolio project; scope safety and shipping confidence outweigh
+  breadth. Each deferred item is preserved in git history and can be
+  lifted into a v2 plan without rework.
 - **Interpretive sources in v1:** included as v1.5 (after v1.4), unified
   into one `interpretive_sources` schema covering case law, DPA enforcement
   decisions, EDPB guidelines, and national DPA guidance. A `type` column
@@ -521,11 +365,11 @@ the summary.
 ---
 
 ## When v1 is done
-A reviewer can: load five frameworks; ask "is this processing activity
-compliant under GDPR?"; receive an answer or a refusal with citations that
-provably trace back to the loaded framework rows; have a low-confidence
-finding land in a queue for human sign-off; walk away with a PDF report
-where every claim is auditable to a row in the database; and ask questions
-that blend statute with the binding case law and authoritative guidance interpreting it. That's the
-intelligence layer — secure, citable, and local. v2 is what makes it
-multi-user and web-facing.
+A reviewer can: load four frameworks (GDPR, Danish DPA, NIST CSF 2.0,
+ISO 27701); ask a free-form privacy/compliance question over them; receive
+an answer or an explicit refusal grounded in citations that provably trace
+back to loaded framework rows; and see hallucinated citations rejected
+rather than returned. That's the intelligence layer in its smallest honest
+form -- secure, citable, and local. Reports, assessment modes, the
+reviewer queue, the NER/classifier guardrail upgrades, and interpretive
+sources are all v2.
