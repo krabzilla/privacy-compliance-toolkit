@@ -35,9 +35,9 @@ class FrameworkSpec:
 # Registry of frameworks shipped with the toolkit.
 FRAMEWORK_REGISTRY: dict[str, FrameworkSpec] = {
     "GDPR": FrameworkSpec(name="GDPR", version="2016/679", filename="gdpr.csv"),
-    # v1:
-    # "Danish DPA": FrameworkSpec("Danish DPA", "2018", "danish_dpa.csv"),
-    # "NIST CSF": FrameworkSpec("NIST CSF", "2.0", "nist_csf_2.csv"),
+    # v1.0a:
+    "Danish DPA": FrameworkSpec(name="Danish DPA", version="2018", filename="danish_dpa.csv"),
+    "NIST CSF": FrameworkSpec(name="NIST CSF", version="2.0", filename="nist_csf_2.csv"),
 }
 
 

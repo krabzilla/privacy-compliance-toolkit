@@ -1,0 +1,107 @@
+Category,Requirement,Body,Reference
+GV - Govern,GV.OC Organizational Context,The organizational mission is understood and informs cybersecurity risk management.,NIST CSF GV.OC-01
+GV - Govern,GV.OC Organizational Context,"Internal and external stakeholders are understood, and their needs and expectations regarding cybersecurity risk management are understood and considered.",NIST CSF GV.OC-02
+GV - Govern,GV.OC Organizational Context,"Legal, regulatory, and contractual requirements regarding cybersecurity -- including privacy and civil-liberties obligations -- are understood and managed.",NIST CSF GV.OC-03
+GV - Govern,GV.OC Organizational Context,"Critical objectives, capabilities, and services that external stakeholders depend on or expect from the organization are understood and communicated.",NIST CSF GV.OC-04
+GV - Govern,GV.OC Organizational Context,"Outcomes, capabilities, and services that the organization depends on are understood and communicated.",NIST CSF GV.OC-05
+GV - Govern,GV.RM Risk Management Strategy,Risk management objectives are established and agreed to by organizational stakeholders.,NIST CSF GV.RM-01
+GV - Govern,GV.RM Risk Management Strategy,"Risk appetite and risk tolerance statements are established, communicated, and maintained.",NIST CSF GV.RM-02
+GV - Govern,GV.RM Risk Management Strategy,Cybersecurity risk management activities and outcomes are included in enterprise risk management processes.,NIST CSF GV.RM-03
+GV - Govern,GV.RM Risk Management Strategy,Strategic direction that describes appropriate risk-response options is established and communicated.,NIST CSF GV.RM-04
+GV - Govern,GV.RM Risk Management Strategy,"Lines of communication across the organization are established for cybersecurity risks, including risks from suppliers and other third parties.",NIST CSF GV.RM-05
+GV - Govern,GV.RM Risk Management Strategy,"A standardized method for calculating, documenting, categorizing, and prioritizing cybersecurity risks is established and communicated.",NIST CSF GV.RM-06
+GV - Govern,GV.RM Risk Management Strategy,Strategic opportunities (positive risks) are characterized and are included in organizational cybersecurity risk discussions.,NIST CSF GV.RM-07
+GV - Govern,"GV.RR Roles, Responsibilities, and Authorities","Organizational leadership is responsible and accountable for cybersecurity risk and fosters a culture that is risk-aware, ethical, and continually improving.",NIST CSF GV.RR-01
+GV - Govern,"GV.RR Roles, Responsibilities, and Authorities","Roles, responsibilities, and authorities related to cybersecurity risk management are established, communicated, understood, and enforced.",NIST CSF GV.RR-02
+GV - Govern,"GV.RR Roles, Responsibilities, and Authorities","Adequate resources are allocated commensurate with the cybersecurity risk strategy, roles, responsibilities, and policies.",NIST CSF GV.RR-03
+GV - Govern,"GV.RR Roles, Responsibilities, and Authorities",Cybersecurity is included in human-resources practices.,NIST CSF GV.RR-04
+GV - Govern,GV.PO Policy,"Policy for managing cybersecurity risks is established based on organizational context, cybersecurity strategy, and priorities and is communicated and enforced.",NIST CSF GV.PO-01
+GV - Govern,GV.PO Policy,"Policy for managing cybersecurity risks is reviewed, updated, communicated, and enforced to reflect changes in requirements, threats, technology, and organizational mission.",NIST CSF GV.PO-02
+GV - Govern,GV.OV Oversight,Cybersecurity risk management strategy outcomes are reviewed to inform and adjust strategy and direction.,NIST CSF GV.OV-01
+GV - Govern,GV.OV Oversight,The cybersecurity risk management strategy is reviewed and adjusted to ensure coverage of organizational requirements and risks.,NIST CSF GV.OV-02
+GV - Govern,GV.OV Oversight,Organizational cybersecurity risk management performance is evaluated and reviewed for adjustments needed.,NIST CSF GV.OV-03
+GV - Govern,GV.SC Cybersecurity Supply Chain Risk Management,"A cybersecurity supply chain risk management program, strategy, objectives, policies, and processes are established and agreed to by organizational stakeholders.",NIST CSF GV.SC-01
+GV - Govern,GV.SC Cybersecurity Supply Chain Risk Management,"Cybersecurity roles and responsibilities for suppliers, customers, and partners are established, communicated, and coordinated internally and externally.",NIST CSF GV.SC-02
+GV - Govern,GV.SC Cybersecurity Supply Chain Risk Management,"Cybersecurity supply chain risk management is integrated into cybersecurity and enterprise risk management, risk assessment, and improvement processes.",NIST CSF GV.SC-03
+GV - Govern,GV.SC Cybersecurity Supply Chain Risk Management,Suppliers are known and prioritized by criticality.,NIST CSF GV.SC-04
+GV - Govern,GV.SC Cybersecurity Supply Chain Risk Management,"Requirements to address cybersecurity risks in supply chains are established, prioritized, and integrated into contracts and other agreements with suppliers and relevant third parties.",NIST CSF GV.SC-05
+GV - Govern,GV.SC Cybersecurity Supply Chain Risk Management,Planning and due diligence are performed to reduce risks before entering into formal supplier or other third-party relationships.,NIST CSF GV.SC-06
+GV - Govern,GV.SC Cybersecurity Supply Chain Risk Management,"The risks posed by a supplier, their products and services, and other third parties are understood, recorded, prioritized, assessed, responded to, and monitored over the course of the relationship.",NIST CSF GV.SC-07
+GV - Govern,GV.SC Cybersecurity Supply Chain Risk Management,"Relevant suppliers and other third parties are included in incident planning, response, and recovery activities.",NIST CSF GV.SC-08
+GV - Govern,GV.SC Cybersecurity Supply Chain Risk Management,"Supply chain security practices are integrated into cybersecurity and enterprise risk management programs, and their performance is monitored throughout the technology product and service life cycle.",NIST CSF GV.SC-09
+GV - Govern,GV.SC Cybersecurity Supply Chain Risk Management,Cybersecurity supply chain risk management plans include provisions for activities that occur after the conclusion of a partnership or service agreement.,NIST CSF GV.SC-10
+ID - Identify,ID.AM Asset Management,Inventories of hardware managed by the organization are maintained.,NIST CSF ID.AM-01
+ID - Identify,ID.AM Asset Management,"Inventories of software, services, and systems managed by the organization are maintained.",NIST CSF ID.AM-02
+ID - Identify,ID.AM Asset Management,Representations of the organization's authorized network communication and internal and external network data flows are maintained.,NIST CSF ID.AM-03
+ID - Identify,ID.AM Asset Management,Inventories of services provided by suppliers are maintained.,NIST CSF ID.AM-04
+ID - Identify,ID.AM Asset Management,"Assets are prioritized based on classification, criticality, resources, and impact on the mission.",NIST CSF ID.AM-05
+ID - Identify,ID.AM Asset Management,Inventories of data and corresponding metadata for designated data types are maintained.,NIST CSF ID.AM-07
+ID - Identify,ID.AM Asset Management,"Systems, hardware, software, services, and data are managed throughout their life cycles.",NIST CSF ID.AM-08
+ID - Identify,ID.RA Risk Assessment,"Vulnerabilities in assets are identified, validated, and recorded.",NIST CSF ID.RA-01
+ID - Identify,ID.RA Risk Assessment,Cyber threat intelligence is received from information-sharing forums and sources.,NIST CSF ID.RA-02
+ID - Identify,ID.RA Risk Assessment,Internal and external threats to the organization are identified and recorded.,NIST CSF ID.RA-03
+ID - Identify,ID.RA Risk Assessment,Potential impacts and likelihoods of threats exploiting vulnerabilities are identified and recorded.,NIST CSF ID.RA-04
+ID - Identify,ID.RA Risk Assessment,"Threats, vulnerabilities, likelihoods, and impacts are used to understand inherent risk and inform risk-response prioritization.",NIST CSF ID.RA-05
+ID - Identify,ID.RA Risk Assessment,"Risk responses are chosen, prioritized, planned, tracked, and communicated.",NIST CSF ID.RA-06
+ID - Identify,ID.RA Risk Assessment,"Changes and exceptions are managed, assessed for risk impact, recorded, and tracked.",NIST CSF ID.RA-07
+ID - Identify,ID.RA Risk Assessment,"Processes for receiving, analyzing, and responding to vulnerability disclosures are established.",NIST CSF ID.RA-08
+ID - Identify,ID.RA Risk Assessment,The authenticity and integrity of hardware and software are assessed prior to acquisition and use.,NIST CSF ID.RA-09
+ID - Identify,ID.RA Risk Assessment,Critical suppliers are assessed prior to acquisition.,NIST CSF ID.RA-10
+ID - Identify,ID.IM Improvement,Improvements are identified from evaluations.,NIST CSF ID.IM-01
+ID - Identify,ID.IM Improvement,"Improvements are identified from security tests and exercises, including those done in coordination with suppliers and relevant third parties.",NIST CSF ID.IM-02
+ID - Identify,ID.IM Improvement,"Improvements are identified from execution of operational processes, procedures, and activities.",NIST CSF ID.IM-03
+ID - Identify,ID.IM Improvement,"Incident response plans and other cybersecurity plans that affect operations are established, communicated, maintained, and improved.",NIST CSF ID.IM-04
+PR - Protect,"PR.AA Identity Management, Authentication, and Access Control","Identities and credentials for authorized users, services, and hardware are managed by the organization.",NIST CSF PR.AA-01
+PR - Protect,"PR.AA Identity Management, Authentication, and Access Control",Identities are proofed and bound to credentials based on the context of interactions.,NIST CSF PR.AA-02
+PR - Protect,"PR.AA Identity Management, Authentication, and Access Control","Users, services, and hardware are authenticated.",NIST CSF PR.AA-03
+PR - Protect,"PR.AA Identity Management, Authentication, and Access Control","Identity assertions are protected, conveyed, and verified.",NIST CSF PR.AA-04
+PR - Protect,"PR.AA Identity Management, Authentication, and Access Control","Access permissions, entitlements, and authorizations are defined in policy, managed, enforced, and reviewed, and incorporate the principles of least privilege and separation of duties.",NIST CSF PR.AA-05
+PR - Protect,"PR.AA Identity Management, Authentication, and Access Control","Physical access to assets is managed, monitored, and enforced commensurate with risk.",NIST CSF PR.AA-06
+PR - Protect,PR.AT Awareness and Training,Personnel are provided with awareness and training so they possess the knowledge and skills to perform general tasks with cybersecurity risks in mind.,NIST CSF PR.AT-01
+PR - Protect,PR.AT Awareness and Training,Individuals in specialized roles are provided with awareness and training so they possess the knowledge and skills to perform relevant tasks with cybersecurity risks in mind.,NIST CSF PR.AT-02
+PR - Protect,PR.DS Data Security,"The confidentiality, integrity, and availability of data-at-rest are protected.",NIST CSF PR.DS-01
+PR - Protect,PR.DS Data Security,"The confidentiality, integrity, and availability of data-in-transit are protected.",NIST CSF PR.DS-02
+PR - Protect,PR.DS Data Security,"The confidentiality, integrity, and availability of data-in-use are protected.",NIST CSF PR.DS-10
+PR - Protect,PR.DS Data Security,"Backups of data are created, protected, maintained, and tested.",NIST CSF PR.DS-11
+PR - Protect,PR.PS Platform Security,Configuration management practices are established and applied.,NIST CSF PR.PS-01
+PR - Protect,PR.PS Platform Security,"Software is maintained, replaced, and removed commensurate with risk.",NIST CSF PR.PS-02
+PR - Protect,PR.PS Platform Security,"Hardware is maintained, replaced, and removed commensurate with risk.",NIST CSF PR.PS-03
+PR - Protect,PR.PS Platform Security,Log records are generated and made available for continuous monitoring.,NIST CSF PR.PS-04
+PR - Protect,PR.PS Platform Security,Installation and execution of unauthorized software are prevented.,NIST CSF PR.PS-05
+PR - Protect,PR.PS Platform Security,"Secure software development practices are integrated, and their performance is monitored throughout the software development life cycle.",NIST CSF PR.PS-06
+PR - Protect,PR.IR Technology Infrastructure Resilience,Networks and environments are protected from unauthorized logical access and usage.,NIST CSF PR.IR-01
+PR - Protect,PR.IR Technology Infrastructure Resilience,The organization's technology assets are protected from environmental threats.,NIST CSF PR.IR-02
+PR - Protect,PR.IR Technology Infrastructure Resilience,Mechanisms are implemented to achieve resilience requirements in normal and adverse situations.,NIST CSF PR.IR-03
+PR - Protect,PR.IR Technology Infrastructure Resilience,Adequate resource capacity to ensure availability is maintained.,NIST CSF PR.IR-04
+DE - Detect,DE.CM Continuous Monitoring,Networks and network services are monitored to find potentially adverse events.,NIST CSF DE.CM-01
+DE - Detect,DE.CM Continuous Monitoring,The physical environment is monitored to find potentially adverse events.,NIST CSF DE.CM-02
+DE - Detect,DE.CM Continuous Monitoring,Personnel activity and technology usage are monitored to find potentially adverse events.,NIST CSF DE.CM-03
+DE - Detect,DE.CM Continuous Monitoring,External service provider activities and services are monitored to find potentially adverse events.,NIST CSF DE.CM-06
+DE - Detect,DE.CM Continuous Monitoring,"Computing hardware and software, runtime environments, and their data are monitored to find potentially adverse events.",NIST CSF DE.CM-09
+DE - Detect,DE.AE Adverse Event Analysis,Potentially adverse events are analyzed to better understand associated activities.,NIST CSF DE.AE-02
+DE - Detect,DE.AE Adverse Event Analysis,Information is correlated from multiple sources.,NIST CSF DE.AE-03
+DE - Detect,DE.AE Adverse Event Analysis,The estimated impact and scope of adverse events are understood.,NIST CSF DE.AE-04
+DE - Detect,DE.AE Adverse Event Analysis,Information on adverse events is provided to authorized staff and tools.,NIST CSF DE.AE-06
+DE - Detect,DE.AE Adverse Event Analysis,Cyber threat intelligence and other contextual information are integrated into the analysis.,NIST CSF DE.AE-07
+DE - Detect,DE.AE Adverse Event Analysis,Incidents are declared when adverse events meet the defined incident criteria.,NIST CSF DE.AE-08
+RS - Respond,RS.MA Incident Management,The incident response plan is executed in coordination with relevant third parties once an incident is declared.,NIST CSF RS.MA-01
+RS - Respond,RS.MA Incident Management,Incident reports are triaged and validated.,NIST CSF RS.MA-02
+RS - Respond,RS.MA Incident Management,Incidents are categorized and prioritized.,NIST CSF RS.MA-03
+RS - Respond,RS.MA Incident Management,Incidents are escalated or elevated as needed.,NIST CSF RS.MA-04
+RS - Respond,RS.MA Incident Management,The criteria for initiating incident recovery are applied.,NIST CSF RS.MA-05
+RS - Respond,RS.AN Incident Analysis,Analysis is performed to establish what has taken place during an incident and the root cause of the incident.,NIST CSF RS.AN-03
+RS - Respond,RS.AN Incident Analysis,"Actions performed during an investigation are recorded, and the records' integrity and provenance are preserved.",NIST CSF RS.AN-06
+RS - Respond,RS.AN Incident Analysis,"Incident data and metadata are collected, and their integrity and provenance are preserved.",NIST CSF RS.AN-07
+RS - Respond,RS.AN Incident Analysis,An incident's magnitude is estimated and validated.,NIST CSF RS.AN-08
+RS - Respond,RS.CO Incident Response Reporting and Communication,Internal and external stakeholders are notified of incidents.,NIST CSF RS.CO-02
+RS - Respond,RS.CO Incident Response Reporting and Communication,Information is shared with designated internal and external stakeholders.,NIST CSF RS.CO-03
+RS - Respond,RS.MI Incident Mitigation,Incidents are contained.,NIST CSF RS.MI-01
+RS - Respond,RS.MI Incident Mitigation,Incidents are eradicated.,NIST CSF RS.MI-02
+RC - Recover,RC.RP Incident Recovery Plan Execution,The recovery portion of the incident response plan is executed once initiated from the incident response process.,NIST CSF RC.RP-01
+RC - Recover,RC.RP Incident Recovery Plan Execution,"Recovery actions are selected, scoped, prioritized, and performed.",NIST CSF RC.RP-02
+RC - Recover,RC.RP Incident Recovery Plan Execution,The integrity of backups and other restoration assets is verified before using them for restoration.,NIST CSF RC.RP-03
+RC - Recover,RC.RP Incident Recovery Plan Execution,Critical mission functions and cybersecurity risk management are considered to establish post-incident operational norms.,NIST CSF RC.RP-04
+RC - Recover,RC.RP Incident Recovery Plan Execution,"The integrity of restored assets is verified, systems and services are restored, and normal operating status is confirmed.",NIST CSF RC.RP-05
+RC - Recover,RC.RP Incident Recovery Plan Execution,"The end of incident recovery is declared based on criteria, and incident-related documentation is completed.",NIST CSF RC.RP-06
+RC - Recover,RC.CO Incident Recovery Communication,Recovery activities and progress in restoring operational capabilities are communicated to designated internal and external stakeholders.,NIST CSF RC.CO-03
+RC - Recover,RC.CO Incident Recovery Communication,Public updates on incident recovery are shared using approved methods and messaging.,NIST CSF RC.CO-04
