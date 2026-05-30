@@ -38,6 +38,8 @@ FRAMEWORK_REGISTRY: dict[str, FrameworkSpec] = {
     # v1.0a:
     "Danish DPA": FrameworkSpec(name="Danish DPA", version="2018", filename="danish_dpa.csv"),
     "NIST CSF": FrameworkSpec(name="NIST CSF", version="2.0", filename="nist_csf_2.csv"),
+    # v1.0b:
+    "ISO 27701": FrameworkSpec(name="ISO 27701", version="2019", filename="iso_27701.csv"),
 }
 
 

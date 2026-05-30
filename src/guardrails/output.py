@@ -86,7 +86,8 @@ def enforce_confidence(score: float, *, threshold: float | None = None) -> float
 _CITATION_RE = re.compile(
     r"\b(?:GDPR\s+Art(?:icle|\.)?\s+\d+(?:\([0-9a-z]+\))*"
     r"|Danish\s+DPA\s+\xa7\s*\d+"
-    r"|NIST\s+CSF\s+[A-Z]{2}\.[A-Z]{2}-\d{2})\b",
+    r"|NIST\s+CSF\s+[A-Z]{2}\.[A-Z]{2}-\d{2}"
+    r"|ISO(?:/IEC)?\s*27701\s+A\.\d+(?:\.\d+){1,3})\b",
     re.IGNORECASE,
 )
 
@@ -99,11 +100,14 @@ def _normalize_citation(citation: str) -> str:
     """
     Canonical comparison form so equivalent surface forms collapse together.
     'GDPR Article 6', 'GDPR Art. 6' and 'GDPR Art.  6' all map to 'gdpr art 6'.
+    'ISO 27701 A.7.2.1', 'ISO/IEC 27701 A.7.2.1', and 'ISO27701 A.7.2.1' all
+    map to 'iso 27701 a 7 2 1'.
     """
     s = (citation or "").strip().lower()
-    s = s.replace(".", " ")                    # 'art.' -> 'art '
-    s = re.sub(r"\barticles?\b", "art", s)     # 'article'/'articles' -> 'art'
-    s = re.sub(r"\s+", " ", s).strip()          # collapse whitespace
+    s = s.replace(".", " ")                          # 'art.' -> 'art '
+    s = re.sub(r"\barticles?\b", "art", s)           # 'article'/'articles' -> 'art'
+    s = re.sub(r"iso(?:/iec)?\s*27701", "iso 27701", s)  # ISO surface variants
+    s = re.sub(r"\s+", " ", s).strip()                # collapse whitespace
     return s
 
 

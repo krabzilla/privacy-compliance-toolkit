@@ -98,6 +98,60 @@ class TestCitationNormalization:
 
 
 # ---------------------------------------------------------------------------
+# ISO 27701 citation format (v1.0b) -- extends _CITATION_RE for ISO control IDs.
+# Same discipline as the GDPR normalization tests above: valid variants must
+# fold together, canonical fakes must be rejected, non-canonical phrasing
+# remains xfail until v1.2's structured-citation emission closes it universally.
+# ---------------------------------------------------------------------------
+class TestISO27701CitationVerification:
+    KNOWN = [
+        "ISO 27701 A.7.2.1",   # purpose
+        "ISO 27701 A.7.2.2",   # lawful basis
+        "ISO 27701 A.8.5.6",   # subprocessor disclosure
+    ]
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "ISO 27701 A.7.2.1 applies.",
+            "ISO/IEC 27701 A.7.2.1 applies.",    # formal name
+            "ISO27701 A.7.2.1",                   # no space between ISO and 27701
+            "see  ISO   27701  A.7.2.1 here",    # ragged whitespace
+            "iso 27701 a.7.2.1",                  # all lowercase
+        ],
+    )
+    def test_valid_iso_variants_accepted(self, text) -> None:
+        assert verify_citations(text, self.KNOWN) == []
+
+    @pytest.mark.parametrize(
+        "text,expected_bad",
+        [
+            ("see ISO 27701 A.99.99.99",  "ISO 27701 A.99.99.99"),  # canonical fake
+            ("ISO 27701 A.7.2.99 applies", "ISO 27701 A.7.2.99"),   # plausible-but-fake
+        ],
+    )
+    def test_canonical_iso_hallucination_rejected(self, text, expected_bad) -> None:
+        bad = verify_citations(text, self.KNOWN)
+        assert expected_bad in bad
+
+    def test_mixed_iso_and_gdpr_in_one_text(self) -> None:
+        # A real-world answer might cite both side-by-side; both must be checked.
+        known = self.KNOWN + ["GDPR Art. 6"]
+        text = "ISO 27701 A.7.2.2 maps to GDPR Art. 6."
+        assert verify_citations(text, known) == []
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="v1: non-canonical phrasing of ISO citations isn't extracted by "
+        "_CITATION_RE; fix is structured-field emission by the LLM (v1.2)",
+    )
+    def test_noncanonical_iso_hallucination_should_be_caught(self) -> None:
+        # Practitioner phrasing that escapes the regex today.
+        bad = verify_citations("see Annex A control 7.2.99 of ISO 27701", self.KNOWN)
+        assert bad != []
+
+
+# ---------------------------------------------------------------------------
 # Known limitations deferred to v1 (model-dependent). Documented as xfail.
 # ---------------------------------------------------------------------------
 class TestDeferredToV1:
