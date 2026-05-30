@@ -66,6 +66,30 @@ def _all_known_references() -> list[str]:
     return [r["reference"] for r in rows]
 
 
+# Module-level VectorStore singleton -- lazy so SQLite-only tools never pay
+# the sentence-transformers model load. Tests inject a FakeEmbedder-backed
+# store via set_vector_store(); production code calls get_vector_store().
+_vector_store = None  # type: ignore[var-annotated]
+
+
+def get_vector_store():
+    """Return the active VectorStore, constructing the default on first call."""
+    global _vector_store
+    if _vector_store is None:
+        from ..rag import SentenceTransformerEmbedder, VectorStore
+        _vector_store = VectorStore(
+            embedder=SentenceTransformerEmbedder(),
+            persist_dir=CONFIG.chroma_dir,
+        )
+    return _vector_store
+
+
+def set_vector_store(vs) -> None:
+    """Inject a VectorStore (or None to force re-init). Used by tests."""
+    global _vector_store
+    _vector_store = vs
+
+
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
@@ -229,6 +253,63 @@ def search_frameworks(query: str, limit: int = 10) -> dict[str, Any]:
             }
         )
     return _ok({"query": query, "count": len(results), "results": results}, request_id=req_id)
+
+
+@mcp.tool()
+def semantic_search(query: str, k: int = 5, framework: str | None = None) -> dict[str, Any]:
+    """
+    Semantic search over loaded frameworks (RAG retrieval; ChromaDB-backed).
+
+    Returns the top-k articles most similar in meaning to `query`. Unlike
+    search_frameworks, this does NOT require keyword overlap -- "when am I
+    allowed to use someones data" can rank GDPR Art. 6 highly even though the
+    query never says "consent" or "Art. 6".
+
+    Args:
+        query: free-text search string.
+        k: max results (1-20, default 5).
+        framework: optional framework name to scope (e.g. 'GDPR'); None searches all.
+    """
+    req_id = _new_request_id()
+    try:
+        query = sanitize_text(query, max_len=500)
+        if framework is not None:
+            framework = sanitize_text(framework, max_len=100)
+    except GuardrailViolation as e:
+        gateway.deny(
+            actor="mcp.semantic_search",
+            action="search",
+            resource="chroma:semantic_search",
+            reason=str(e),
+            request_id=req_id,
+        )
+        return _refusal(str(e), request_id=req_id)
+
+    k = max(1, min(int(k) if k else 5, 20))
+
+    # vs.query() opens its own gateway-audited read scope, so this MCP tool's
+    # call gets a chroma:* audit row without needing to re-wrap it here.
+    vs = get_vector_store()
+    hits = vs.query(query, k=k, framework=framework)
+
+    results = []
+    for h in hits:
+        snippet = redact_pii(h.body[:240]).text
+        results.append(
+            {
+                "framework": h.framework,
+                "reference": h.reference,
+                "category": h.category,
+                "requirement": h.requirement,
+                "snippet": snippet,
+                "score": round(h.score, 4),
+            }
+        )
+
+    return _ok(
+        {"query": query, "count": len(results), "results": results},
+        request_id=req_id,
+    )
 
 
 # ---------------------------------------------------------------------------

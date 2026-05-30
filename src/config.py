@@ -63,6 +63,9 @@ class Config:
     mcp_rate_limit_requests: int
     mcp_rate_limit_window_s: int
 
+    # ---- RAG / vector store ----
+    chroma_dir: Path
+
     @classmethod
     def from_env(cls) -> "Config":
         data_dir = Path(_env("PCT_DATA_DIR", "./data")).resolve()
@@ -86,6 +89,7 @@ class Config:
             mcp_api_key=_env("PCT_MCP_API_KEY", ""),
             mcp_rate_limit_requests=_env_int("PCT_MCP_RATE_LIMIT_REQUESTS", 60),
             mcp_rate_limit_window_s=_env_int("PCT_MCP_RATE_LIMIT_WINDOW_S", 60),
+            chroma_dir=Path(_env("PCT_CHROMA_DIR", str(data_dir / "chroma"))).resolve(),
         )
 
 
