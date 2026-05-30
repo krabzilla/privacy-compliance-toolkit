@@ -36,7 +36,6 @@ real) — without loosening any v0 / v0.1 security posture.
   meaningful with the v2 dashboard, not before.
 - PDF report generation (`reportlab`) and the heavy guardrail upgrades
   (NER PII, classifier-based injection detection).
-- Interpretive sources (case law, DPA decisions, EDPB guidelines).
 
 ---
 
@@ -93,9 +92,10 @@ milestone and still have a working improvement over v0.1.
 | v1.1 | Semantic retrieval | "search that understands meaning" | `src/rag/embeddings.py`, `src/rag/vector_store.py` |
 | v1.2 | LLM wrapper + RAG generation | "answers grounded in citable rules" | `src/llm/client.py`, `src/rag/engine.py` |
 
-*v1.3 (assessment modes + reviewer queue), v1.4 (PDF reports + guardrail
-upgrades), and v1.5 (interpretive sources) were originally planned for v1
-and are now deferred to v2 -- see the Deferred to v2 section below.*
+*v1.3 (assessment modes + reviewer queue) and v1.4 (PDF reports + guardrail
+upgrades) were originally planned for v1 and are now deferred to v2.
+v1.5 (interpretive sources) was originally planned but has been dropped
+from the roadmap. See the Deferred to v2 section below.*
 
 ### v1.0 — Framework expansion (split into v1.0a and v1.0b)
 **Goal:** load four additional frameworks so the toolkit covers a privacy
@@ -234,8 +234,16 @@ After v1.0a shipped, v1 was trimmed to its minimum-viable shape: the thesis
 below were specced for v1 in earlier revisions of this plan and remain
 worthwhile -- they just ship in v2 instead, so v1 stays small,
 well-tested, and unlikely to stall on integration complexity. The original
-detailed specs are preserved in git (commits `ff578f9`, `d8865c0`) and can
-be lifted into a v2 plan without rework.
+detailed specs are preserved in git (commit `ff578f9`) and can be lifted
+into a v2 plan without rework.
+
+A third item, interpretive sources (case law + EDPB guidance + DPA
+decisions), was specced as v1.5 in an earlier revision (commit `d8865c0`)
+and has been **dropped from the roadmap entirely** -- not deferred. The
+accuracy stakes are real (a misquoted CJEU holding is the kind of error
+that hurts a portfolio piece), and the schema/loader/verifier/RAG-prompt
+work would be a substantial milestone on its own. If a future version of
+the project wants this, the original spec is still in git.
 
 ### Was v1.3 -- Assessment modes + reviewer queue
 Compliance-gap and risk-gap detection (different prompts, different
@@ -255,16 +263,6 @@ injection defense, the citation-trace-back backstop, and the
 the upgrades properly. The four `xfail(strict=True)` markers in
 `tests/test_adversarial.py` remain xfail through v1; they flip to passing
 when v2 lands the NER and classifier upgrades.
-
-### Was v1.5 -- Interpretive sources (case law + regulatory guidance)
-Unified `interpretive_sources` schema (`case_law` | `dpa_decision` |
-`edpb_guideline` | `dpa_guidance` with a `binding` flag), curated corpus of
-landmark CJEU rulings, national DPA enforcement decisions, and EDPB
-guidelines, type-aware RAG prompt template, citation-verifier extension for
-case-law and guidance formats, and new MCP tools
-(`find_interpretive_sources`, `ask_with_interpretation`). The most
-ambitious deferred item and the highest accuracy-stakes content; pushed to
-v2 where it sits naturally alongside the dashboard.
 
 ### What v1 still delivers
 Semantic retrieval over four frameworks (GDPR, Danish DPA, NIST CSF 2.0,
@@ -345,22 +343,13 @@ dependencies. That is the intelligence layer in its smallest honest form.
   citation format and Privacy/Security Rule content volume) outweighed
   the breadth signal for v1. Reconsider after v1 ships.
 - **Minimum-viable v1:** trimmed to v1.0a + v1.0b + v1.1 + v1.2 after
-  v1.0a shipped. v1.3 (assessment modes + reviewer queue), v1.4 (PDF
-  reports + guardrail upgrades), and v1.5 (interpretive sources) all
-  deferred to v2 -- see *Deferred to v2*. Reason: this is the author's
-  first portfolio project; scope safety and shipping confidence outweigh
-  breadth. Each deferred item is preserved in git history and can be
-  lifted into a v2 plan without rework.
-- **Interpretive sources in v1:** included as v1.5 (after v1.4), unified
-  into one `interpretive_sources` schema covering case law, DPA enforcement
-  decisions, EDPB guidelines, and national DPA guidance. A `type` column
-  and a `binding` flag carry the legal-weight distinction; the RAG prompt
-  template conditions on type so binding rulings are not conflated with
-  non-binding guidance in answers. Considered two alternatives: (a) split
-  case law (v1.5) and guidance (v1.6) into two milestones -- rejected
-  because the schema/loader/verifier work duplicates with no architectural
-  benefit; (b) shoehorn into the articles table -- rejected because it
-  would weaken the citation-trace-back claim.
+  v1.0a shipped. v1.3 (assessment modes + reviewer queue) and v1.4 (PDF
+  reports + guardrail upgrades) deferred to v2 -- see *Deferred to v2*.
+  v1.5 (interpretive sources) dropped from the roadmap entirely
+  (original spec preserved in git commit `d8865c0`). Reason: this is
+  the author's first portfolio project; scope safety and shipping
+  confidence outweigh breadth, and the case-law accuracy stakes are
+  the highest in the project.
 
 ---
 
@@ -371,5 +360,6 @@ an answer or an explicit refusal grounded in citations that provably trace
 back to loaded framework rows; and see hallucinated citations rejected
 rather than returned. That's the intelligence layer in its smallest honest
 form -- secure, citable, and local. Reports, assessment modes, the
-reviewer queue, the NER/classifier guardrail upgrades, and interpretive
-sources are all v2.
+reviewer queue, and the NER/classifier guardrail upgrades are all v2.
+Interpretive sources (case law, DPA decisions, EDPB guidelines) were
+considered and dropped from the roadmap entirely.
