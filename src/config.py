@@ -46,6 +46,11 @@ class Config:
     llm_temperature: float
     llm_max_tokens: int
 
+    # ---- v1.2 generic LLM wrapper (provider-agnostic) ----
+    llm_provider: str          # "ollama" (default) | "openai" | "fake"
+    llm_model: str             # e.g. "mistral:7b-instruct"
+    ollama_base_url: str       # e.g. "http://127.0.0.1:11434" 
+
     # ---- Guardrails ----
     max_file_size_mb: int
     max_url_fetch_bytes: int
@@ -80,6 +85,9 @@ class Config:
             openai_model=_env("OPENAI_MODEL", "gpt-4o-mini"),
             llm_temperature=_env_float("PCT_LLM_TEMPERATURE", 0.3),
             llm_max_tokens=_env_int("PCT_LLM_MAX_TOKENS", 2000),
+            llm_provider=_env("PCT_LLM_PROVIDER", "ollama"),
+            llm_model=_env("PCT_LLM_MODEL", "mistral:7b-instruct"),
+            ollama_base_url=_env("PCT_OLLAMA_BASE_URL", "http://127.0.0.1:11434"),
             max_file_size_mb=_env_int("PCT_MAX_FILE_SIZE_MB", 10),
             max_url_fetch_bytes=_env_int("PCT_MAX_URL_FETCH_BYTES", 5_000_000),
             request_timeout_s=_env_int("PCT_REQUEST_TIMEOUT_S", 30),

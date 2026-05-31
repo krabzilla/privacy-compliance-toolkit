@@ -90,6 +90,33 @@ def set_vector_store(vs) -> None:
     _vector_store = vs
 
 
+# Module-level LLM client singleton -- lazy for the same reason as the
+# vector store. Tests inject a FakeLLMClient; production wires the
+# configured provider (Ollama by default).
+_llm_client = None  # type: ignore[var-annotated]
+
+
+def get_llm_client():
+    """Return the active LLMClient, constructing the configured default if absent."""
+    global _llm_client
+    if _llm_client is None:
+        from ..llm import OllamaClient
+        # v1.2 ships Ollama only; the wrapper makes adding GeminiClient /
+        # GroqClient a one-class change rather than a server-wide refactor.
+        _llm_client = OllamaClient(
+            model=CONFIG.llm_model,
+            base_url=CONFIG.ollama_base_url,
+            timeout_s=CONFIG.request_timeout_s,
+        )
+    return _llm_client
+
+
+def set_llm_client(client) -> None:
+    """Inject an LLMClient (or None to force re-init). Used by tests."""
+    global _llm_client
+    _llm_client = client
+
+
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
@@ -308,6 +335,66 @@ def semantic_search(query: str, k: int = 5, framework: str | None = None) -> dic
 
     return _ok(
         {"query": query, "count": len(results), "results": results},
+        request_id=req_id,
+    )
+
+
+@mcp.tool()
+def ask_compliance(question: str, framework: str | None = None) -> dict[str, Any]:
+    """
+    Answer a free-form privacy/compliance question with verified citations.
+
+    The RAG engine retrieves the most relevant rules, asks the configured
+    LLM to answer using ONLY those rules, and then validates every emitted
+    citation against (a) what was actually retrieved and (b) the known
+    reference set. A fabricated, mis-remembered, or low-confidence citation
+    causes the entire answer to be REFUSED -- never partially returned.
+
+    Args:
+        question: free-text privacy / compliance question.
+        framework: optional framework name to scope retrieval
+                   (e.g. 'GDPR', 'ISO 27701').
+    """
+    req_id = _new_request_id()
+    try:
+        question = sanitize_text(question, max_len=2000)
+        if framework is not None:
+            framework = sanitize_text(framework, max_len=100)
+    except GuardrailViolation as e:
+        gateway.deny(
+            actor="mcp.ask_compliance",
+            action="ask",
+            resource="rag:engine",
+            reason=str(e),
+            request_id=req_id,
+        )
+        return _refusal(str(e), request_id=req_id)
+
+    from ..rag.engine import RAGRefusal, answer as rag_answer
+
+    try:
+        a = rag_answer(
+            question,
+            vector_store=get_vector_store(),
+            llm_client=get_llm_client(),
+            framework=framework,
+        )
+    except RAGRefusal as e:
+        # RAGRefusal already audited (the gateway scopes inside the engine
+        # captured the retrieval / write events). Surface as a clean refusal.
+        return _refusal(str(e), request_id=req_id)
+
+    return _ok(
+        {
+            "question": question,
+            "answer": a.text,
+            "citations": [
+                {"framework": c.framework, "reference": c.reference}
+                for c in a.citations
+            ],
+            "confidence": round(a.confidence, 4),
+            "retrieved_refs": a.retrieved_refs,
+        },
         request_id=req_id,
     )
 
