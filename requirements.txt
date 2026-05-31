@@ -25,7 +25,11 @@ pytest>=8.0.0
 pytest-asyncio>=0.23.0
 ruff>=0.4.0
 
-# v1 (added in next phase) — kept here for forward visibility
-# chromadb>=0.5.0
-# sentence-transformers>=2.7.0
-# reportlab>=4.1.0
+# RAG (v1.1) — semantic retrieval
+chromadb>=1.0.0
+sentence-transformers>=2.7.0
+
+# Deferred to v2 — kept here for forward visibility, not installed by default
+# reportlab>=4.1.0           # v1.4 PDF reports (deferred)
+# presidio-analyzer>=2.2.0   # v1.4 NER PII redaction (deferred)
+# tiktoken>=0.6.0            # v1.4 accurate token counting (deferred)
