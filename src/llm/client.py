@@ -63,9 +63,17 @@ class Response:
 
 
 class LLMClient(Protocol):
-    """The single contract the rag.engine consumes."""
+    """The contract the rag.engine + rag.gap_analysis consume."""
 
     def complete(self, prompt: str) -> Response:
+        """Structured Q&A response (answer / citations / confidence)."""
+        ...
+
+    def complete_json(self, prompt: str) -> dict:
+        """Raw JSON response as a parsed dict. Use for callers (like
+        rag.gap_analysis) whose JSON schema is NOT the Q&A shape.
+        Implementations must still enforce that the response is valid JSON
+        and raise LLMError on transport / parsing failure."""
         ...
 
 
@@ -99,7 +107,8 @@ class OllamaClient:
         self.base_url = base_url.rstrip("/")
         self.timeout_s = timeout_s
 
-    def complete(self, prompt: str) -> Response:
+    def _call_and_parse(self, prompt: str) -> dict:
+        """HTTP call + JSON parse. Shared by complete() and complete_json()."""
         try:
             import httpx  # lazy
         except ImportError as e:  # pragma: no cover
@@ -127,13 +136,18 @@ class OllamaClient:
         content = (body.get("message") or {}).get("content")
         if not content or not isinstance(content, str):
             raise LLMError("Ollama response missing message.content")
-
         try:
-            parsed = json.loads(content)
+            return json.loads(content)
         except json.JSONDecodeError as e:
             raise LLMError(f"Ollama response not valid JSON: {e}") from e
 
-        return _response_from_dict(parsed)
+    def complete(self, prompt: str) -> Response:
+        """Structured Q&A response. Expects answer/citations/confidence schema."""
+        return _response_from_dict(self._call_and_parse(prompt))
+
+    def complete_json(self, prompt: str) -> dict:
+        """Raw JSON dict -- for callers whose schema is NOT Q&A."""
+        return self._call_and_parse(prompt)
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +183,7 @@ class FakeLLMClient:
         self.calls: list[str] = []  # prompts captured for test assertions
 
     def complete(self, prompt: str) -> Response:
+        """Structured Q&A path. Returns the canned Response as-is."""
         self.calls.append(prompt)
         if self._factory is not None:
             return self._factory(prompt)
@@ -181,6 +196,19 @@ class FakeLLMClient:
         r = self._responses[self._idx]
         self._idx += 1
         return r
+
+    def complete_json(self, prompt: str) -> dict:
+        """Raw-JSON path. The canned Response.text is itself the JSON string
+        the test wants the LLM to return; parse it on the way out so the same
+        FakeLLMClient instance can serve both call paths."""
+        resp = self.complete(prompt)
+        try:
+            return json.loads(resp.text)
+        except json.JSONDecodeError as e:
+            raise LLMError(
+                f"FakeLLMClient.complete_json: canned response.text is not "
+                f"valid JSON: {e}"
+            ) from e
 
 
 # ---------------------------------------------------------------------------

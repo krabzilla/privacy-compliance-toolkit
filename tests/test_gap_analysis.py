@@ -211,27 +211,33 @@ def test_llm_drift_marks_finding_as_needs_review(isolated_env: Path) -> None:
                      embedder=FakeEmbedder(dim=32),
                      llm_client=fc, framework="FW",
                      coverage_high=0.99, coverage_low=0.01)
+    # complete_json on the bad text raises LLMError; analyze() catches it
+    # per-finding and marks the article as needs-review -- exactly what we
+    # want: one bad LLM call does not poison the whole report.
     assert report.findings[0].status == "partial"
     assert "LLM verification failed" in report.findings[0].reasoning
 
 
 def test_verifier_response_validates_schema(isolated_env: Path) -> None:
-    """The verifier's JSON must match the schema (status in {covered,partial,
-    gap}, valid severity, confidence in [0,1])."""
+    """The verifier's parsed dict must match the schema (status in
+    {covered,partial,gap}, valid severity, confidence in [0,1])."""
     from src.rag.gap_analysis import _parse_verifier_response
     from src.llm.client import LLMError
 
-    # Happy path
-    parsed = _parse_verifier_response(_verifier_response("covered", severity="low"))
+    # Happy path -- dict input now (post v1.3 fix).
+    parsed = _parse_verifier_response(
+        {"status": "covered", "severity": "low", "confidence": 0.9,
+         "evidence_excerpt": "", "reasoning": "r", "suggested_remediation": ""}
+    )
     assert parsed["status"] == "covered"
 
-    # Drift cases
+    # Drift cases -- still raise LLMError on contract violations.
     for bad in [
-        '{"status": "uncertain"}',                  # bad status enum
-        '{"status": "covered", "severity": "x"}',   # bad severity enum
-        '{"status": "covered", "confidence": 1.5}', # out of range
-        "not json at all",
-        "[]",                                       # not an object
+        {"status": "uncertain"},                       # bad status enum
+        {"status": "covered", "severity": "x"},        # bad severity enum
+        {"status": "covered", "confidence": 1.5},     # out of range
+        "not a dict",                                  # wrong type entirely
+        [],                                            # not a dict
     ]:
         with pytest.raises(LLMError):
             _parse_verifier_response(bad)

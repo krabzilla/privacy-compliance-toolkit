@@ -60,10 +60,10 @@ from .embeddings import Embedder
 COVERAGE_HIGH = 0.55     # >= this -> probably covered (skip LLM)
 COVERAGE_LOW = 0.30      # <= this -> probably gap (LLM still confirms top N)
 # Per-analysis LLM-call budget so an analysis is bounded in time and cost.
-VERIFY_LIMIT = 20
+VERIFY_LIMIT = 10        # was 20; halved after a 25-min run on CPU Mistral
 # Top-N probably_gap items to also send to the LLM for severity / remediation
 # detail (rather than just labelling them "gap" with no reasoning).
-VERIFY_TOP_GAPS = 8
+VERIFY_TOP_GAPS = 5      # was 8; trimmed in line with VERIFY_LIMIT
 # Policy text limits.
 MAX_POLICY_CHARS = 50_000
 # Chunker target -- sentences per chunk.
@@ -214,12 +214,14 @@ def _load_articles(framework: str | None) -> list[_Article]:
 # ---------------------------------------------------------------------------
 
 
-def _parse_verifier_response(raw: str) -> dict:
-    """Validate the verifier's JSON response against the contract."""
-    try:
-        d = json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise LLMError(f"verifier response not JSON: {e}") from e
+def _parse_verifier_response(d: dict) -> dict:
+    """Validate the verifier's already-parsed JSON dict against the contract.
+
+    The dict comes from LLMClient.complete_json (post-fix); previously this
+    function parsed a string returned via LLMClient.complete().text, but that
+    silently collapsed to empty for non-QA response shapes -- which is why
+    every gap-analysis verification used to fail with 'response not JSON'.
+    """
     if not isinstance(d, dict):
         raise LLMError("verifier response is not a JSON object")
     status = d.get("status")
@@ -246,7 +248,13 @@ def _verify_with_llm(
     policy_text: str,
     article: _Article,
 ) -> dict:
-    """Single article-vs-policy LLM verification. Returns the parsed result."""
+    """Single article-vs-policy LLM verification. Returns the parsed result.
+
+    Uses complete_json (raw-dict path) rather than complete() because the
+    verifier's JSON schema is NOT the Q&A {answer, citations, confidence}
+    shape -- it's {status, severity, evidence_excerpt, reasoning,
+    suggested_remediation, confidence}.
+    """
     prompt = build_gap_analysis_prompt(
         policy_text=policy_text,
         framework=article.framework,
@@ -255,9 +263,8 @@ def _verify_with_llm(
         body=article.body,
     )
     enforce_token_budget(prompt)
-    resp = llm.complete(prompt)
-    # The Response.text from a JSON-format LLM call is the JSON string itself.
-    return _parse_verifier_response(resp.text)
+    response_dict = llm.complete_json(prompt)
+    return _parse_verifier_response(response_dict)
 
 
 # ---------------------------------------------------------------------------
