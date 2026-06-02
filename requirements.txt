@@ -29,6 +29,9 @@ ruff>=0.4.0
 chromadb>=1.0.0
 sentence-transformers>=2.7.0
 
+# Frontend (v1.4) — local Streamlit demo
+streamlit>=1.31.0
+
 # Deferred to v2 — kept here for forward visibility, not installed by default
 # reportlab>=4.1.0           # v1.4 PDF reports (deferred)
 # presidio-analyzer>=2.2.0   # v1.4 NER PII redaction (deferred)
