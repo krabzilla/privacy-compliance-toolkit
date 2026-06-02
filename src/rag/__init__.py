@@ -15,11 +15,23 @@ methods) so the test suite can run without sentence-transformers installed.
 from __future__ import annotations
 
 from .embeddings import Embedder, FakeEmbedder, SentenceTransformerEmbedder
+from .gap_analysis import (
+    Finding,
+    GapAnalysisRefusal,
+    GapReport,
+    analyze as analyze_policy,
+    chunk_policy,
+)
 from .vector_store import VectorStore
 
 __all__ = [
     "Embedder",
     "FakeEmbedder",
+    "Finding",
+    "GapAnalysisRefusal",
+    "GapReport",
     "SentenceTransformerEmbedder",
     "VectorStore",
+    "analyze_policy",
+    "chunk_policy",
 ]

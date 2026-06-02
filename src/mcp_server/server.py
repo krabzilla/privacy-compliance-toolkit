@@ -399,6 +399,127 @@ def ask_compliance(question: str, framework: str | None = None) -> dict[str, Any
     )
 
 
+@mcp.tool()
+def analyze_policy(policy_text: str, framework: str) -> dict[str, Any]:
+    """
+    Compare a privacy policy against a single loaded framework, return per-
+    requirement findings (covered / partial / gap) with severity, evidence,
+    reasoning, and suggested remediation.
+
+    Hybrid pipeline (v1.3):
+      * Semantic coverage scoring decides articles with clearly high or low
+        similarity in milliseconds.
+      * Ambiguous cases and the top-N likely gaps are verified with the
+        configured LLM (Ollama by default). Verification is bounded by a
+        per-analysis budget so total time stays under a couple of minutes.
+
+    Args:
+        policy_text: free-text privacy policy (UTF-8, up to ~50,000 chars).
+        framework: one of the loaded framework names (e.g. "GDPR",
+                   "ISO 27701", "Danish DPA", "NIST CSF").
+    """
+    req_id = _new_request_id()
+    try:
+        policy_text = sanitize_text(policy_text, max_len=50_000)
+        framework = sanitize_text(framework, max_len=100)
+    except GuardrailViolation as e:
+        gateway.deny(
+            actor="mcp.analyze_policy",
+            action="analyze",
+            resource=f"gap_analysis:{framework!s}",
+            reason=str(e),
+            request_id=req_id,
+        )
+        return _refusal(str(e), request_id=req_id)
+
+    from ..rag.embeddings import SentenceTransformerEmbedder
+    from ..rag.gap_analysis import GapAnalysisRefusal, analyze as run_analysis
+
+    vs = get_vector_store()
+    # The analyzer needs a raw embedder for per-article scoring. Reuse the
+    # vector_store's if it exposes one; otherwise fall back to the production
+    # default. (vector_store carries an embedder internally; we keep them in
+    # sync to avoid two different embedding models in one analysis.)
+    embedder = getattr(vs, "_embedder", None) or SentenceTransformerEmbedder()
+
+    try:
+        report = run_analysis(
+            policy_text,
+            embedder=embedder,
+            llm_client=get_llm_client(),
+            framework=framework,
+        )
+    except GapAnalysisRefusal as e:
+        return _refusal(str(e), request_id=req_id)
+
+    return _ok(report.to_dict(), request_id=req_id)
+
+
+@mcp.tool()
+def analyze_policy_all(policy_text: str) -> dict[str, Any]:
+    """
+    Same as analyze_policy but runs against every loaded framework at once.
+    Per-framework findings are grouped in the response. Slower than a
+    single-framework call (more LLM verifications), but a stronger single-
+    request demonstration.
+
+    Args:
+        policy_text: free-text privacy policy (UTF-8, up to ~50,000 chars).
+    """
+    req_id = _new_request_id()
+    try:
+        policy_text = sanitize_text(policy_text, max_len=50_000)
+    except GuardrailViolation as e:
+        gateway.deny(
+            actor="mcp.analyze_policy_all",
+            action="analyze",
+            resource="gap_analysis:all",
+            reason=str(e),
+            request_id=req_id,
+        )
+        return _refusal(str(e), request_id=req_id)
+
+    from ..rag.embeddings import SentenceTransformerEmbedder
+    from ..rag.gap_analysis import GapAnalysisRefusal, analyze as run_analysis
+
+    vs = get_vector_store()
+    embedder = getattr(vs, "_embedder", None) or SentenceTransformerEmbedder()
+
+    try:
+        report = run_analysis(
+            policy_text,
+            embedder=embedder,
+            llm_client=get_llm_client(),
+            framework=None,  # all frameworks
+        )
+    except GapAnalysisRefusal as e:
+        return _refusal(str(e), request_id=req_id)
+
+    # Regroup findings by framework for a nicer top-level shape.
+    by_fw: dict[str, list[dict]] = {}
+    for f in report.findings:
+        by_fw.setdefault(f.framework, []).append(f.to_dict())
+    per_framework_summary = []
+    for fw, items in by_fw.items():
+        per_framework_summary.append({
+            "framework": fw,
+            "n_articles": len(items),
+            "n_covered": sum(1 for i in items if i["status"] == "covered"),
+            "n_partial": sum(1 for i in items if i["status"] == "partial"),
+            "n_gap": sum(1 for i in items if i["status"] == "gap"),
+            "findings": items,
+        })
+
+    return _ok(
+        {
+            "n_articles": report.n_articles,
+            "n_llm_verifications": report.n_llm_verifications,
+            "per_framework": per_framework_summary,
+        },
+        request_id=req_id,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Authenticated HTTP app factory
 # ---------------------------------------------------------------------------
