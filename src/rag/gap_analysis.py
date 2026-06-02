@@ -262,7 +262,11 @@ def _verify_with_llm(
         requirement=article.requirement,
         body=article.body,
     )
-    enforce_token_budget(prompt)
+    # Per-call budget override: the default (CONFIG.llm_max_tokens, ~2000) is
+    # right-sized for ask_compliance but tight for gap analysis where the
+    # ENTIRE policy text rides in every verification prompt. Stay under
+    # Mistral's 32K context window with generous headroom.
+    enforce_token_budget(prompt, max_tokens=24_000)
     response_dict = llm.complete_json(prompt)
     return _parse_verifier_response(response_dict)
 
