@@ -94,6 +94,7 @@ class NoticeFinding:
     evidence: str             # short excerpt from POLICY, or ""
     reasoning: str            # one-sentence explanation
     suggested_remediation: str  # what to add/strengthen ("" if covered/N/A)
+    verified: bool = False    # True if an LLM verified this item; False = semantic-only / N/A
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -142,6 +143,8 @@ def _verify_requirement(
     llm: LLMClient,
     req: NoticeRequirement,
     policy_excerpts: str,
+    *,
+    strict: bool = False,
 ) -> dict:
     """Single requirement-vs-policy LLM verification. Returns the parsed result."""
     prompt = build_notice_verification_prompt(
@@ -151,6 +154,7 @@ def _verify_requirement(
         requirement=req.requirement,
         verifier_question=req.verifier_question,
         positive_indicators=req.positive_indicators,
+        strict=strict,
     )
     enforce_token_budget(prompt, max_tokens=NOTICE_VERIFY_TOKENS)
     response_dict = llm.complete_json(prompt)
@@ -170,6 +174,8 @@ def analyze_notice(
     verify_limit: int = VERIFY_LIMIT,
     verify_top_gaps: int = VERIFY_TOP_GAPS,
     top_chunks: int = TOP_CHUNKS_PER_REQUIREMENT,
+    verify_all: bool = False,
+    strict: bool = False,
 ) -> NoticeReport:
     """
     Analyze `policy_text` against the notice checklist for the declared profile.
@@ -224,15 +230,21 @@ def analyze_notice(
     # 6) LLM verification: every ambiguous, plus the worst top-N probably_gap,
     #    each seeing only its most-relevant chunks. Bounded by verify_limit.
     probably_gap_idx.sort(key=lambda i: scores[i])
-    verify_queue = list(ambiguous_idx) + probably_gap_idx[:verify_top_gaps]
-    if len(verify_queue) > verify_limit:
-        verify_queue = verify_queue[:verify_limit]
+    if verify_all:
+        # Rigorous mode: LLM-verify EVERY applicable requirement, no semantic
+        # auto-pass. Worst-scoring first so a budget cap (if any) still lands
+        # on the likeliest gaps.
+        verify_queue = sorted(range(len(applicable)), key=lambda i: scores[i])
+    else:
+        verify_queue = list(ambiguous_idx) + probably_gap_idx[:verify_top_gaps]
+        if len(verify_queue) > verify_limit:
+            verify_queue = verify_queue[:verify_limit]
 
     verified: dict[int, dict] = {}
     for i in verify_queue:
         excerpts = _top_chunks(req_vecs[i], chunks, chunk_vecs, top_chunks)
         try:
-            verified[i] = _verify_requirement(llm_client, applicable[i], excerpts)
+            verified[i] = _verify_requirement(llm_client, applicable[i], excerpts, strict=strict)
         except LLMError as e:
             verified[i] = {
                 "status": "partial",
@@ -263,6 +275,7 @@ def analyze_notice(
                     redact_pii(v["suggested_remediation"]).text
                     if v["suggested_remediation"] else ""
                 ),
+                verified=True,
             ))
         elif i in set(probably_covered_idx):
             findings.append(NoticeFinding(

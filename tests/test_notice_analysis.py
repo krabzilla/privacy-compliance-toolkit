@@ -155,3 +155,30 @@ def test_llm_failure_flags_for_review_not_crash() -> None:
     f = report.findings[0]
     assert f.status == "partial"
     assert "human review" in f.reasoning.lower()
+
+
+def test_verify_all_strict_sends_every_requirement_to_llm() -> None:
+    """Rigorous mode: verify_all=True routes EVERY applicable requirement
+    through the LLM (no semantic auto-pass), and strict=True injects the
+    rigorous grading rubric into each prompt."""
+    from src.llm import FakeLLMClient, Response
+    from src.rag import FakeEmbedder
+    from src.rag.notice_analysis import analyze_notice
+
+    cl = _checklist([
+        _req("A", "Identity of the controller and contact details."),
+        _req("B", "Purposes of the processing."),
+        _req("C", "Retention period or criteria."),
+    ])
+    # Factory returns a valid 'covered' verifier JSON for every call.
+    fc = FakeLLMClient(factory=lambda prompt: Response(text=_verifier_json("covered", severity="low")))
+    report = analyze_notice(
+        "We are Acme Ltd. We process data to run the service. We keep it 5 years.",
+        embedder=FakeEmbedder(dim=32), llm_client=fc, checklist=cl,
+        verify_all=True, strict=True,
+    )
+    assert report.n_requirements == 3
+    assert report.n_llm_verifications == 3          # all three verified, none auto-passed
+    assert all(f.verified for f in report.findings if f.status != "not_applicable")
+    assert len(fc.calls) == 3
+    assert all("RIGOROUS GRADING" in c for c in fc.calls)   # strict rubric injected

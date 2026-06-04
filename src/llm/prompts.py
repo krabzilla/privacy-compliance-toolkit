@@ -223,6 +223,25 @@ Rules for the response:
 """
 
 
+NOTICE_STRICT_RUBRIC = """\
+
+RIGOROUS GRADING (apply strictly -- this notice is being audited):
+- Mark "covered" ONLY if the excerpts EXPLICITLY and SPECIFICALLY make this exact
+  disclosure. Generic, topical, or boilerplate language that merely touches the
+  subject is NOT sufficient.
+- Mark "partial" if the topic appears but the specific detail the requirement
+  demands is missing or vague -- e.g. "we keep data as long as necessary" for a
+  retention period; "legitimate interests" without naming them; "we may transfer
+  data internationally" without naming the safeguard (adequacy/SCCs/BCRs); a
+  lawful basis asserted in the abstract but not mapped to purposes.
+- Mark "gap" if the disclosure is absent from the excerpts.
+- Do NOT infer, assume, or supply disclosures that are not present in the text.
+- When uncertain, grade DOWN (gap < partial < covered), not up, and lower your
+  confidence accordingly. A high-confidence "covered" must be defensible by the
+  evidence_excerpt you quote.
+"""
+
+
 def build_notice_verification_prompt(
     policy_excerpts: str,
     *,
@@ -231,6 +250,7 @@ def build_notice_verification_prompt(
     requirement: str,
     verifier_question: str,
     positive_indicators=(),
+    strict: bool = False,
 ) -> str:
     """Compose the notice-verification prompt for one requirement.
 
@@ -243,7 +263,7 @@ def build_notice_verification_prompt(
         if indicators_list
         else ""
     )
-    return NOTICE_VERIFICATION_TEMPLATE.format(
+    prompt = NOTICE_VERIFICATION_TEMPLATE.format(
         policy_excerpts=policy_excerpts or "(no relevant passages retrieved)",
         req_id=req_id,
         reference=reference,
@@ -251,3 +271,6 @@ def build_notice_verification_prompt(
         verifier_question=verifier_question,
         indicators=indicators,
     )
+    if strict:
+        prompt += NOTICE_STRICT_RUBRIC
+    return prompt
