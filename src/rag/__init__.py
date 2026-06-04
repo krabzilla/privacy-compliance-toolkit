@@ -22,6 +22,12 @@ from .gap_analysis import (
     analyze as analyze_policy,
     chunk_policy,
 )
+from .notice_analysis import (
+    NoticeAnalysisRefusal,
+    NoticeFinding,
+    NoticeReport,
+    analyze_notice,
+)
 from .vector_store import VectorStore
 
 __all__ = [
@@ -30,8 +36,12 @@ __all__ = [
     "Finding",
     "GapAnalysisRefusal",
     "GapReport",
+    "NoticeAnalysisRefusal",
+    "NoticeFinding",
+    "NoticeReport",
     "SentenceTransformerEmbedder",
     "VectorStore",
+    "analyze_notice",
     "analyze_policy",
     "chunk_policy",
 ]

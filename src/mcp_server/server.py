@@ -520,6 +520,76 @@ def analyze_policy_all(policy_text: str) -> dict[str, Any]:
     )
 
 
+
+
+@mcp.tool()
+def analyze_notice(
+    policy_text: str,
+    org_profile: list[str] | None = None,
+) -> dict[str, Any]:
+    """
+    Check a privacy NOTICE against the curated GDPR notice-requirement
+    checklist (Arts. 12-14 + Danish CPR overlay), NOT the full 99-article
+    regulation. This is the correct tool for grading a public privacy policy:
+    operational duties (ROPA, DPIA, security of processing) are intentionally
+    excluded because they do not belong in a notice.
+
+    Each requirement is filtered by the declared org profile, then scored
+    semantically and (for borderline cases) verified by the LLM against only
+    the most relevant policy passages.
+
+    Args:
+        policy_text: free-text privacy notice (UTF-8, up to ~50,000 chars).
+        org_profile: facts the org declares, drawn from the checklist
+            condition vocabulary, e.g. ["data_collected_directly",
+            "legal_basis_includes_consent", "transfers_outside_eea",
+            "cpr_processed"]. Requirements whose condition is absent are
+            reported as not_applicable rather than as gaps. `always`
+            requirements are graded regardless.
+    """
+    req_id = _new_request_id()
+    try:
+        policy_text = sanitize_text(policy_text, max_len=50_000)
+        profile = {sanitize_text(c, max_len=100) for c in (org_profile or [])}
+    except GuardrailViolation as e:
+        gateway.deny(
+            actor="mcp.analyze_notice",
+            action="analyze",
+            resource="notice_analysis:gdpr",
+            reason=str(e),
+            request_id=req_id,
+        )
+        return _refusal(str(e), request_id=req_id)
+
+    from ..rag.embeddings import SentenceTransformerEmbedder
+    from ..rag.notice_analysis import NoticeAnalysisRefusal, analyze_notice as run_notice
+
+    vs = get_vector_store()
+    embedder = getattr(vs, "_embedder", None) or SentenceTransformerEmbedder()
+
+    # Keep the audited-access discipline for every analyze call (the checklist
+    # itself is a local file, but we still record that an analysis happened).
+    with gateway.access(
+        actor="mcp.analyze_notice",
+        action="analyze",
+        resource="notice_analysis:gdpr",
+        request_id=req_id,
+        metadata={"profile": sorted(profile)},
+    ):
+        pass
+
+    try:
+        report = run_notice(
+            policy_text,
+            embedder=embedder,
+            llm_client=get_llm_client(),
+            org_profile=profile,
+        )
+    except NoticeAnalysisRefusal as e:
+        return _refusal(str(e), request_id=req_id)
+
+    return _ok(report.to_dict(), request_id=req_id)
+
 # ---------------------------------------------------------------------------
 # Authenticated HTTP app factory
 # ---------------------------------------------------------------------------

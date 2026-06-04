@@ -102,10 +102,19 @@ class OllamaClient:
         model: str,
         base_url: str = "http://127.0.0.1:11434",
         timeout_s: int = 30,
+        num_predict: int | None = None,
+        num_ctx: int | None = None,
     ) -> None:
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout_s = timeout_s
+        # Optional Ollama generation bounds. num_predict caps how many tokens
+        # the model may GENERATE (our JSON replies are small, so capping this
+        # stops a runaway model from eating the whole timeout). num_ctx sets the
+        # context window. Both default to None -> Ollama's own defaults, so
+        # existing behaviour is unchanged unless a caller opts in.
+        self.num_predict = num_predict
+        self.num_ctx = num_ctx
 
     def _call_and_parse(self, prompt: str) -> dict:
         """HTTP call + JSON parse. Shared by complete() and complete_json()."""
@@ -121,6 +130,13 @@ class OllamaClient:
             "stream": False,
             "format": "json",
         }
+        options: dict = {}
+        if self.num_predict is not None:
+            options["num_predict"] = self.num_predict
+        if self.num_ctx is not None:
+            options["num_ctx"] = self.num_ctx
+        if options:
+            payload["options"] = options
         try:
             with httpx.Client(timeout=self.timeout_s) as client:
                 http_resp = client.post(url, json=payload)

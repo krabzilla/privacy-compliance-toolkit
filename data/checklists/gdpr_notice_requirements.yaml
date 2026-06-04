@@ -1,0 +1,413 @@
+# =============================================================================
+# Privacy-notice requirement set
+# -----------------------------------------------------------------------------
+# What a GDPR privacy NOTICE (Art. 13 / 14, framed by Art. 12) must disclose.
+# This is deliberately NOT the full 99-article GDPR. Most of GDPR imposes
+# internal/operational duties (ROPA, DPIA, processor instructions, cooperation
+# with the supervisory authority) that never belong in a public notice and
+# should not be graded against one.
+#
+# Each requirement carries:
+#   gdpr_articles      precise refs -> feed the citation verifier (must be real)
+#   category           mandatory | conditional | recommended
+#   applies_when       a condition from `condition_vocabulary` below
+#   requirement        rich description -> EMBED THIS (not the title)
+#   verifier_question  single yes/no -> the Mistral verification prompt
+#   positive_indicators concepts a satisfying policy tends to contain
+#   fix                concrete, specific remediation text
+#
+# Usage flow:
+#   1. Take the org's declared facts (org_profile).
+#   2. Filter requirements: keep `always` + any `applies_when` that is true.
+#   3. For each kept requirement: embed `requirement`, retrieve policy chunks,
+#      ask `verifier_question`. Gap = applicable AND not satisfied.
+#   4. A requirement whose condition is false is N/A, not a gap.
+# =============================================================================
+
+meta:
+  schema_version: "1.0"
+  framework: "GDPR (Regulation (EU) 2016/679)"
+  jurisdiction: "EU/EEA; optional Denmark (Datatilsynet) overlay"
+  legal_basis: "Arts. 13, 14 (information duties); Art. 12 (transparency)"
+  last_reviewed: "2026-06-02"
+  notes: >
+    Versioned as data, not code, on purpose. The EU "digital omnibus"
+    (in trilogue as of mid-2026) proposes narrowing some Art. 13 transparency
+    duties in limited, non-data-intensive cases. When/if adopted, bump
+    schema_version and edit affected requirements rather than touching engine code.
+
+# Closed set of facts the org declares. Everything else is `always`.
+condition_vocabulary:
+  - always
+  - data_collected_directly        # Art. 13 scenario (from the data subject)
+  - data_collected_indirectly      # Art. 14 scenario (from third parties / public sources)
+  - legal_basis_includes_legitimate_interest
+  - legal_basis_includes_consent
+  - transfers_outside_eea
+  - automated_decision_making_present
+  - special_category_data           # Art. 9 data processed
+  - controller_outside_eu           # triggers Art. 27 representative
+  - dpo_appointed
+  - cpr_processed                   # Denmark only
+
+requirements:
+
+  - id: NOTICE-CONTROLLER-IDENTITY
+    title: Identity and contact details of the controller
+    gdpr_articles: ["13(1)(a)", "14(1)(a)"]
+    category: mandatory
+    applies_when: always
+    requirement: >
+      The notice must identify the data controller as a named legal entity and
+      provide at least one direct contact channel (postal address, email, or a
+      contact form). Where the controller is established outside the EU and
+      Art. 27 applies, the identity and contact details of the EU representative
+      must also be stated.
+    verifier_question: >
+      Does the policy name the controlling legal entity and give a way to contact it?
+    positive_indicators:
+      - controller legal entity name
+      - registered/postal address
+      - contact email or web form
+      - '"we are the data controller" or equivalent'
+    fix: >
+      State the full legal name of the controlling entity and at least one
+      contact channel. If the controller sits outside the EU/EEA while offering
+      goods/services to, or monitoring, EU data subjects, also name the Art. 27
+      EU representative and how to reach them.
+
+  - id: NOTICE-DPO-CONTACT
+    title: Contact details of the Data Protection Officer
+    gdpr_articles: ["13(1)(b)", "14(1)(b)"]
+    category: conditional
+    applies_when: dpo_appointed
+    requirement: >
+      Where a DPO has been appointed (mandatory in the cases listed in Art. 37),
+      the notice must provide the DPO's contact details. A role mailbox (e.g.
+      dpo@...) is sufficient; the individual need not be named.
+    verifier_question: >
+      Does the policy provide contact details for a Data Protection Officer or DPO function?
+    positive_indicators:
+      - '"Data Protection Officer" / "DPO"'
+      - dedicated DPO email or address
+    fix: >
+      Add a contact point for the DPO (a role mailbox is fine). If no DPO is
+      appointed, this requirement does not apply, but stating a privacy contact
+      anyway is good practice.
+
+  - id: NOTICE-PURPOSES
+    title: Purposes of the processing
+    gdpr_articles: ["13(1)(c)", "14(1)(c)"]
+    category: mandatory
+    applies_when: always
+    requirement: >
+      The notice must describe, for each processing activity, the specific
+      purpose(s) for which personal data are processed. Purposes must be
+      concrete (e.g. "to administer your employment contract", "to send our
+      newsletter"), not generic ("for business purposes").
+    verifier_question: >
+      Does the policy state the specific purposes for which personal data are processed?
+    positive_indicators:
+      - enumerated purposes
+      - purpose tied to a category of processing
+    fix: >
+      List each distinct purpose of processing in specific terms. Avoid
+      catch-all phrasing; a reader should be able to map each data use to a
+      stated purpose.
+
+  - id: NOTICE-LEGAL-BASIS
+    title: Legal basis for each purpose
+    gdpr_articles: ["13(1)(c)", "14(1)(c)", "6"]
+    category: mandatory
+    applies_when: always
+    requirement: >
+      For every purpose, the notice must state the Art. 6 lawful basis relied on
+      (consent, contract, legal obligation, vital interests, public task, or
+      legitimate interests). A single blanket basis for all processing is
+      usually inadequate; bases should be mapped to purposes.
+    verifier_question: >
+      Does the policy identify a lawful basis under Art. 6 for the processing it describes?
+    positive_indicators:
+      - '"lawful basis" / "legal basis"'
+      - named Art. 6 ground(s)
+      - basis mapped to specific purposes
+    fix: >
+      For each purpose, name the Art. 6(1) basis you rely on. If you use
+      different bases for different activities, make the mapping explicit rather
+      than asserting one basis covers everything.
+
+  - id: NOTICE-LEGITIMATE-INTERESTS
+    title: Legitimate interests pursued
+    gdpr_articles: ["13(1)(d)", "14(2)(b)"]
+    category: conditional
+    applies_when: legal_basis_includes_legitimate_interest
+    requirement: >
+      Where processing relies on legitimate interests (Art. 6(1)(f)), the notice
+      must identify the specific legitimate interests pursued by the controller
+      or a third party.
+    verifier_question: >
+      Where legitimate interests are relied on, does the policy state what those interests are?
+    positive_indicators:
+      - '"legitimate interest(s)"'
+      - description of the specific interest (e.g. fraud prevention, network security)
+    fix: >
+      Name the specific legitimate interest behind each instance of Art. 6(1)(f)
+      processing (e.g. "preventing fraud", "securing our network"). A bare
+      reference to "legitimate interests" without saying which is insufficient.
+
+  - id: NOTICE-DATA-CATEGORIES
+    title: Categories of personal data
+    gdpr_articles: ["14(1)(d)"]
+    category: conditional
+    applies_when: data_collected_indirectly
+    requirement: >
+      Where data are obtained from a source other than the data subject, the
+      notice must state the categories of personal data concerned, because the
+      subject did not supply them and otherwise would not know what is held.
+    verifier_question: >
+      Where data is collected indirectly, does the policy state the categories of personal data involved?
+    positive_indicators:
+      - enumerated data categories (contact data, identifiers, financial data, etc.)
+    fix: >
+      List the categories of personal data you process about the individual.
+      (Strictly required only for indirectly collected data under Art. 14, but
+      listing categories is good practice for directly collected data too.)
+
+  - id: NOTICE-RECIPIENTS
+    title: Recipients or categories of recipients
+    gdpr_articles: ["13(1)(e)", "14(1)(e)"]
+    category: mandatory
+    applies_when: always
+    requirement: >
+      The notice must identify the recipients, or categories of recipients, of
+      the personal data — including processors, group companies, and any public
+      authorities to whom data may be disclosed.
+    verifier_question: >
+      Does the policy say who personal data is shared with (named recipients or categories)?
+    positive_indicators:
+      - '"we share with" / "recipients"'
+      - categories: service providers, group entities, authorities
+    fix: >
+      State who receives the data, by name or by category (e.g. "IT service
+      providers", "group companies", "law enforcement where legally required").
+
+  - id: NOTICE-INTL-TRANSFERS
+    title: International transfers and safeguards
+    gdpr_articles: ["13(1)(f)", "14(1)(f)", "44", "45", "46"]
+    category: conditional
+    applies_when: transfers_outside_eea
+    requirement: >
+      Where personal data are transferred outside the EEA, the notice must state
+      the fact of transfer and the transfer mechanism: an adequacy decision, or
+      appropriate safeguards (e.g. Standard Contractual Clauses, Binding
+      Corporate Rules) with a reference to how a copy can be obtained.
+    verifier_question: >
+      Where data leaves the EEA, does the policy state the transfer mechanism (adequacy, SCCs, BCRs)?
+    positive_indicators:
+      - '"transfer outside the EEA" / "third country"'
+      - '"adequacy decision"'
+      - '"Standard Contractual Clauses" / "SCCs"'
+      - '"Binding Corporate Rules" / "BCRs"'
+    fix: >
+      Disclose that transfers occur and name the safeguard relied on (adequacy
+      decision, SCCs, or BCRs), plus how individuals can obtain a copy of the
+      safeguard. If you make no transfers outside the EEA, this does not apply.
+
+  - id: NOTICE-RETENTION
+    title: Retention period or criteria
+    gdpr_articles: ["13(2)(a)", "14(2)(a)"]
+    category: mandatory
+    applies_when: always
+    requirement: >
+      The notice must state the period for which personal data will be stored,
+      or — where a fixed period cannot be given — the criteria used to determine
+      that period.
+    verifier_question: >
+      Does the policy state retention periods or the criteria used to set them?
+    positive_indicators:
+      - 'specific durations ("for X years")'
+      - '"retention period" / "how long we keep"'
+      - 'criteria (e.g. "for the duration of the contract plus statutory limitation")'
+    fix: >
+      Give retention periods per data category or purpose, or state the criteria
+      you apply (e.g. legal limitation periods). "We keep data as long as
+      necessary" alone is not sufficient.
+
+  - id: NOTICE-DATA-SUBJECT-RIGHTS
+    title: Existence of data subject rights
+    gdpr_articles: ["13(2)(b)", "14(2)(c)", "15", "16", "17", "18", "20", "21"]
+    category: mandatory
+    applies_when: always
+    requirement: >
+      The notice must inform individuals of their rights of access,
+      rectification, erasure, restriction of processing, objection, and data
+      portability, and how to exercise them.
+    verifier_question: >
+      Does the policy describe the individual's rights (access, rectification, erasure, restriction, objection, portability)?
+    positive_indicators:
+      - '"right to access" / "right of access"'
+      - 'rectification, erasure ("right to be forgotten")'
+      - restriction, objection, portability
+      - how to make a request
+    fix: >
+      List the data subject rights (access, rectification, erasure, restriction,
+      objection, portability) and explain how to exercise them. Omitting any of
+      the applicable rights is a gap.
+
+  - id: NOTICE-WITHDRAW-CONSENT
+    title: Right to withdraw consent
+    gdpr_articles: ["13(2)(c)", "14(2)(d)"]
+    category: conditional
+    applies_when: legal_basis_includes_consent
+    requirement: >
+      Where processing relies on consent, the notice must state the right to
+      withdraw consent at any time, and that withdrawal does not affect the
+      lawfulness of processing carried out before withdrawal.
+    verifier_question: >
+      Where consent is a basis, does the policy state the right to withdraw consent at any time?
+    positive_indicators:
+      - '"withdraw consent" / "withdraw your consent at any time"'
+      - note that withdrawal is not retroactive
+    fix: >
+      State that consent can be withdrawn at any time and how, and that
+      withdrawal does not affect processing already carried out. Applies only
+      where consent is used as a basis.
+
+  - id: NOTICE-COMPLAINT-RIGHT
+    title: Right to lodge a complaint with a supervisory authority
+    gdpr_articles: ["13(2)(d)", "14(2)(e)", "77"]
+    category: mandatory
+    applies_when: always
+    requirement: >
+      The notice must inform individuals of their right to lodge a complaint
+      with a supervisory authority. Naming the relevant authority (e.g.
+      Datatilsynet in Denmark) is good practice.
+    verifier_question: >
+      Does the policy mention the right to complain to a data protection supervisory authority?
+    positive_indicators:
+      - '"supervisory authority" / "data protection authority"'
+      - '"right to lodge a complaint"'
+      - named authority (Datatilsynet, ICO, etc.)
+    fix: >
+      State that individuals may complain to a supervisory authority, and
+      ideally name and link the relevant one for your jurisdiction.
+
+  - id: NOTICE-DATA-SOURCE
+    title: Source of the personal data
+    gdpr_articles: ["14(2)(f)"]
+    category: conditional
+    applies_when: data_collected_indirectly
+    requirement: >
+      Where data are not obtained from the data subject, the notice must state
+      the source(s) from which the personal data originate, and whether they
+      came from publicly accessible sources.
+    verifier_question: >
+      Where data is collected indirectly, does the policy state where the data came from?
+    positive_indicators:
+      - '"we obtained your data from"'
+      - 'named sources / "publicly available sources"'
+    fix: >
+      Disclose the origin of indirectly collected data (specific sources or
+      categories of source, and whether any are publicly accessible).
+
+  - id: NOTICE-PROVISION-OBLIGATION
+    title: Statutory/contractual requirement to provide data and consequences
+    gdpr_articles: ["13(2)(e)"]
+    category: conditional
+    applies_when: data_collected_directly
+    requirement: >
+      Where data is collected directly, the notice must state whether providing
+      the data is a statutory or contractual requirement (or necessary to enter
+      a contract), whether the individual is obliged to provide it, and the
+      consequences of not doing so.
+    verifier_question: >
+      Does the policy explain whether providing data is required and what happens if it is not provided?
+    positive_indicators:
+      - '"you are required to provide"'
+      - '"necessary to enter into the contract"'
+      - consequences of non-provision
+    fix: >
+      Where relevant, state whether data provision is mandatory (by statute or
+      contract) and what follows if the individual declines (e.g. "we cannot
+      provide the service"). Applies to directly collected data only.
+
+  - id: NOTICE-AUTOMATED-DECISIONS
+    title: Automated decision-making and profiling
+    gdpr_articles: ["13(2)(f)", "14(2)(g)", "22"]
+    category: conditional
+    applies_when: automated_decision_making_present
+    requirement: >
+      Where solely automated decision-making (including profiling) producing
+      legal or similarly significant effects takes place, the notice must
+      disclose its existence and give meaningful information about the logic
+      involved and the significance and envisaged consequences.
+    verifier_question: >
+      Where automated decision-making or profiling occurs, does the policy disclose it and explain the logic and consequences?
+    positive_indicators:
+      - '"automated decision-making" / "profiling"'
+      - description of logic
+      - significance / consequences for the individual
+    fix: >
+      Disclose any solely automated decisions with significant effects, explain
+      the logic in plain terms, and state the consequences. If you carry out no
+      such processing, stating that is reassuring but not strictly required.
+
+  - id: NOTICE-SPECIAL-CATEGORIES
+    title: Basis for special category data
+    gdpr_articles: ["9"]
+    category: conditional
+    applies_when: special_category_data
+    requirement: >
+      Where special category data (health, biometric, racial/ethnic origin,
+      political opinions, religion, trade union membership, sex life or
+      orientation) is processed, the notice should make clear that such data is
+      processed and identify the Art. 9(2) condition relied on.
+    verifier_question: >
+      Where special category data is processed, does the policy identify the Art. 9 condition for it?
+    positive_indicators:
+      - '"special category" / "sensitive data"'
+      - named Art. 9(2) condition (explicit consent, employment law, etc.)
+    fix: >
+      State that special category data is processed and on which Art. 9(2) basis
+      (often explicit consent or an employment/social-security law condition).
+
+  - id: NOTICE-TRANSPARENCY-QUALITY
+    title: Concise, intelligible, plain language
+    gdpr_articles: ["12(1)"]
+    category: recommended
+    applies_when: always
+    requirement: >
+      Information must be provided in a concise, transparent, intelligible and
+      easily accessible form, in clear and plain language. This is a quality
+      dimension layered over the specific disclosures above.
+    verifier_question: >
+      Is the policy written in clear, plain, accessible language rather than dense legalese?
+    positive_indicators:
+      - short sentences, defined terms
+      - logical structure / headings
+      - reasonable reading level
+    fix: >
+      Simplify dense or legalistic passages, define jargon, and structure the
+      notice so a non-specialist can find and understand each disclosure. A
+      readability metric can support this check.
+
+  # --- Denmark (Datatilsynet) overlay -----------------------------------------
+  - id: NOTICE-DK-CPR
+    title: Processing of CPR (personal identification) numbers
+    gdpr_articles: ["6", "87"]            # + Databeskyttelsesloven §11 (national law)
+    national_law: "Databeskyttelsesloven (Danish Data Protection Act) §11"
+    category: conditional
+    applies_when: cpr_processed
+    requirement: >
+      Where Danish CPR numbers are processed, the Danish Data Protection Act
+      §11 imposes specific conditions (e.g. legal requirement, explicit consent,
+      or a defined private-sector ground). The notice should make CPR processing
+      and its basis transparent.
+    verifier_question: >
+      Where CPR numbers are processed, does the policy address them and their lawful basis?
+    positive_indicators:
+      - '"CPR" / "personnummer" / "personal identification number"'
+      - stated basis for CPR use
+    fix: >
+      Disclose any processing of CPR numbers and the §11 condition relied on.
+      Applies only to Denmark-facing processing of CPR numbers.
