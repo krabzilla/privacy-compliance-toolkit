@@ -12,25 +12,83 @@
 
 Most "AI for compliance" demos wire an LLM directly to a vector store and call it a day. This project takes the opposite stance: **every data access goes through an audited gateway, every input is validated, every output is checked against the source framework**, and the LLM is treated as an untrusted component sitting inside a defense-in-depth perimeter.
 
-The toolkit answers questions like:
-- *"Does this processing activity satisfy GDPR Art. 6(1)(b)?"*
-- *"Which NIST CSF 2.0 subcategories cover incident notification?"*
-- *"Where does the Danish DPA tighten GDPR's defaults?"*
-- *"Does this published privacy notice make every disclosure GDPR Arts. 13-14 require?"*
+It does three things:
 
-It refuses to answer (loudly) when its confidence is below threshold, when the citation doesn't trace back to a framework row, or when the input looks like prompt injection.
+- **Answers compliance questions** with citations that provably trace back to the loaded frameworks (it refuses, loudly, when confidence is low or a citation can't be verified). Try: *"Which NIST CSF 2.0 subcategories cover incident notification?"* · *"Where does the Danish DPA tighten GDPR's defaults?"* · *"Does this processing activity satisfy GDPR Art. 6(1)(b)?"*
+- **Audits a published privacy notice** against the specific disclosures GDPR Arts. 12-14 require (see below).
+- **Treats the LLM as untrusted** — input, processing, and output guardrails wrap every call.
 
 ### Privacy-notice gap analysis (v1.5)
 
-Beyond answering questions, the toolkit audits a **published privacy notice** against the specific disclosures GDPR requires it to make (Arts. 13-14, framed by Art. 12), plus the Danish CPR overlay. The requirement set lives as versioned data in [`data/checklists/gdpr_notice_requirements.yaml`](data/checklists/gdpr_notice_requirements.yaml) and is filtered to the disclosures that actually apply to a controller's declared profile — a requirement whose condition is false is reported **N/A**, never a false gap.
+The toolkit audits a **published privacy notice** against the specific disclosures GDPR requires it to make (Arts. 13-14, framed by Art. 12), plus the Danish CPR overlay. The requirement set lives as versioned data in [`data/checklists/gdpr_notice_requirements.yaml`](data/checklists/gdpr_notice_requirements.yaml) and is filtered to the disclosures that actually apply to a controller's declared profile — a requirement whose condition is false is reported **N/A**, never a false gap.
 
 It deliberately does **not** grade a notice against all 99 GDPR articles. Most of the regulation imposes internal/operational duties (ROPA Art. 30, security Art. 32, DPIA Art. 35) that never belong in a public notice; scoring them produces false gaps. Each applicable requirement is scored semantically, then verified by the LLM against only the most relevant policy passages under a strict grading rubric (vague or boilerplate language scores *partial*, not *covered*). Run it via [`scripts/analyze_notice.py`](scripts/analyze_notice.py) or the `analyze_notice` MCP tool.
 
 ---
 
-## Architecture
+## Quick start
 
-### Separation of duties
+```bash
+# 1. Clone & enter
+git clone https://github.com/krabzilla/privacy-compliance-toolkit.git
+cd privacy-compliance-toolkit
+
+# 2. Virtual env
+python -m venv .venv
+source .venv/bin/activate          # Windows Git Bash: source .venv/Scripts/activate
+pip install -r requirements.txt    # pulls chromadb + sentence-transformers (heavy first install)
+
+# 3. Generate an API key (once) and export it -- the server refuses to boot without one
+python scripts/generate_api_key.py
+export PCT_MCP_API_KEY="<the key it prints>"   # Windows PowerShell: $env:PCT_MCP_API_KEY="..."
+
+# 4. Initialise DB + load frameworks (279 articles across 4 frameworks)
+python scripts/init_db.py
+python scripts/load_frameworks.py
+
+# 5. Build the vector index (first run downloads ~120 MB all-MiniLM-L12-v2)
+python scripts/index_frameworks.py
+
+# 6. (Optional, required for the LLM steps) install Ollama and pull a model
+#    Download from https://ollama.com/download then:
+ollama pull mistral:7b-instruct
+ollama serve   # already runs as a service after install on Windows
+
+# 7. Run the MCP server (HTTP, authenticated)
+python -m src.mcp_server.server
+# Listening on 127.0.0.1:8765 -- every request needs Authorization: Bearer <key>
+```
+
+Calls must carry the key:
+
+```bash
+curl -H "Authorization: Bearer $PCT_MCP_API_KEY" http://127.0.0.1:8765/...
+```
+
+See [docs/SECURITY.md](docs/SECURITY.md) for the auth gate, rate limiting, key rotation procedure, and what's deferred (encryption, monitoring, patching).
+
+### Analyze a privacy notice (no server needed)
+
+`analyze_notice.py` runs the Art. 12-14 checklist analyzer in-process — no MCP server, no API key:
+
+```bash
+python scripts/analyze_notice.py path/to/privacy_policy.txt \
+  --profile data_collected_directly,legal_basis_includes_consent,transfers_outside_eea,cpr_processed
+```
+
+Rigorous by default: every applicable disclosure is LLM-verified and each finding prints with its evidence quote, confidence, and source (LLM vs semantic). Add `--fast` for a quicker hybrid pass, or `--no-llm` for a semantic-only sweep. A full JSON report is written next to the policy file. Declarable profile facts are listed in the checklist YAML.
+
+### Ask a compliance question (no server needed)
+
+```bash
+python scripts/ask.py "Which NIST CSF 2.0 subcategories cover incident notification?" --framework "NIST CSF"
+```
+
+Prints the answer, its confidence, the **verified** citations, and the rules that were retrieved and shown to the model. A `REFUSED` result means the guardrail blocked a low-confidence or unverifiable answer — that's the system working, not a crash.
+
+---
+
+## How it works
 
 Four components, one job each. None of them talk to data directly — they all go through the **Logging Gateway**.
 
@@ -63,7 +121,8 @@ Four components, one job each. None of them talk to data directly — they all g
 | **4. Output guardrails** | Verify before returning | Regex PII redaction (7 structured types), confidence floor, **structured-citation enforcement** (the LLM emits citations as JSON; every citation must trace back to both the retrieved rules and the loaded framework rows; fabrications refuse the response) |
 | **5. Trust pyramid** | Human sign-off on high-impact outputs | Confidence threshold gates. Reviewer queue + dashboard deferred to v2 |
 
-### Security guardrails (the 7)
+<details>
+<summary><strong>The seven security guardrails, in detail</strong></summary>
 
 **Input**
 1. **URL validation (SSRF)** — `guardrails/input.py::validate_url` rejects RFC1918, link-local, loopback, IPv6 ULA, and AWS/GCP/Azure metadata endpoints. Names are resolved and every resolved IP is rechecked against the blocklist; resolution failure fails closed (v0.1 hardening — see [`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md)).
@@ -78,7 +137,10 @@ Four components, one job each. None of them talk to data directly — they all g
 **Output**
 7. **Citation verification, PII redaction, confidence thresholds** — `guardrails/output.py` enforces all three before a response leaves the MCP server. For LLM-generated answers (`ask_compliance`), `rag/engine.py` enforces an even stricter contract: the LLM emits citations as a **structured JSON field**, and every citation must appear in both the retrieved rules **and** the loaded framework rows; any miss refuses the entire response rather than returning it (the v1.2 thesis).
 
-### Privacy by Design (Cavoukian, 7 principles)
+</details>
+
+<details>
+<summary><strong>Privacy by Design — Cavoukian's 7 principles, mapped to the code</strong></summary>
 
 | # | Principle | How it shows up here |
 |---|-----------|----------------------|
@@ -90,9 +152,7 @@ Four components, one job each. None of them talk to data directly — they all g
 | 6 | Visibility and transparency | Every audit row is queryable; reports cite article-level sources |
 | 7 | Respect for the user | PII is redacted in outputs even if it leaked through inputs |
 
-### Compliance-gap vs risk-gap reasoning (v2)
-
-The toolkit will distinguish **compliance gaps** (a required control is missing) from **risk gaps** (a control exists but is weak in context). The architectural design (different prompts per mode, different scoring, distinct reviewer-queue routing) is captured in [`docs/v1-plan.md`](docs/v1-plan.md); implementation is deferred to v2 alongside the dashboard.
+</details>
 
 ---
 
@@ -118,60 +178,8 @@ Loaded files live in `data/frameworks/` -- four frameworks, 279 articles total:
 
 ---
 
-## Quick start
-
-```bash
-# 1. Clone & enter
-git clone https://github.com/krabzilla/privacy-compliance-toolkit.git
-cd privacy-compliance-toolkit
-
-# 2. Virtual env
-python -m venv .venv
-source .venv/bin/activate          # Windows Git Bash: source .venv/Scripts/activate
-pip install -r requirements.txt    # pulls chromadb + sentence-transformers (heavy first install)
-
-# 3. Generate an API key (once) and export it -- the server refuses to boot without one
-python scripts/generate_api_key.py
-export PCT_MCP_API_KEY="<the key it prints>"   # Windows PowerShell: $env:PCT_MCP_API_KEY="..."
-
-# 4. Initialise DB + load frameworks (279 articles across 4 frameworks)
-python scripts/init_db.py
-python scripts/load_frameworks.py
-
-# 5. Build the vector index (first run downloads ~120 MB all-MiniLM-L12-v2)
-python scripts/index_frameworks.py
-
-# 6. (Optional, required for ask_compliance) install Ollama and pull a model
-#    Download from https://ollama.com/download then:
-ollama pull mistral:7b-instruct
-ollama serve   # already runs as a service after install on Windows
-
-# 7. Run the MCP server (HTTP, authenticated)
-python -m src.mcp_server.server
-# Listening on 127.0.0.1:8765 -- every request needs Authorization: Bearer <key>
-```
-
-Calls must carry the key:
-
-```bash
-curl -H "Authorization: Bearer $PCT_MCP_API_KEY" http://127.0.0.1:8765/...
-```
-
-See [docs/SECURITY.md](docs/SECURITY.md) for the auth gate, rate limiting, key
-rotation procedure, and what's deferred (encryption, monitoring, patching).
-
-### Analyze a privacy notice (no server needed)
-
-`analyze_notice.py` runs the Art. 12-14 checklist analyzer in-process — no MCP server, no API key:
-
-```bash
-python scripts/analyze_notice.py path/to/privacy_policy.txt \
-  --profile data_collected_directly,legal_basis_includes_consent,transfers_outside_eea,cpr_processed
-```
-
-Rigorous by default: every applicable disclosure is LLM-verified and each finding prints with its evidence quote, confidence, and source (LLM vs semantic). Add `--fast` for a quicker hybrid pass, or `--no-llm` for a semantic-only sweep. A full JSON report is written next to the policy file. Declarable profile facts are listed in the checklist YAML.
-
-## Repository layout
+<details>
+<summary><strong>Repository layout</strong></summary>
 
 ```
 privacy-compliance-toolkit/
@@ -247,9 +255,26 @@ privacy-compliance-toolkit/
 └── README.md
 ```
 
+</details>
+
 ---
 
 ## Roadmap
+
+### v2 — Surface (next)
+
+The shape of v2 is documented in [`docs/v1-plan.md`](docs/v1-plan.md)'s "Deferred to v2" section. The likely scope:
+
+- React + Tailwind dashboard
+- FastAPI orchestrator with **OAuth 2.1** (per-user identity, scopes, token expiry / revocation)
+- Assessment modes (compliance-gap vs risk-gap detection) + reviewer queue
+- PDF report generation (`reportlab`) with auditable per-claim citations
+- Heavy guardrail upgrades: NER PII (Presidio / spaCy), classifier-based injection detection, `tiktoken` token counting
+- TLS in transit, IP allowlist, Docker Compose
+- Live public demo deployment
+
+<details>
+<summary><strong>Shipped — full history (v0 → v1.5)</strong></summary>
 
 ### v0 — Foundation ✅ shipped
 - Repository structure, README, license
@@ -275,7 +300,6 @@ The librarian becomes an analyst. Free-form questions answered with citations th
 - **v1.0b** — ISO/IEC 27701 loaded (49 controls) + citation verifier extended for ISO format
 - **v1.1** — semantic retrieval: HuggingFace `all-MiniLM-L12-v2` embeddings + ChromaDB. New `semantic_search` MCP tool. Vector store routed through the same logging gateway as SQLite
 - **v1.2** — LLM wrapper (`OllamaClient` + `FakeLLMClient` for tests, provider-agnostic) + RAG engine with **structured-citation enforcement**. New `ask_compliance` MCP tool. Every citation in an answer must trace back to both the retrieved rules and the loaded framework rows; fabrications refuse the entire response, never partial-return
-- 5 MCP tools, 4 frameworks, 279 articles, 139 passing tests, order-independent across randomized seeds
 - Plan, decisions made, things dropped, things deferred all recorded in [`docs/v1-plan.md`](docs/v1-plan.md)
 
 ### v1.3-v1.5 — Gap analysis ✅ shipped
@@ -285,15 +309,7 @@ The analyst learns to audit documents, not just answer questions.
 - **v1.5** — privacy-**notice** gap analysis (`analyze_notice`): grades a published notice against the curated GDPR Art. 12-14 disclosure checklist (+ Danish CPR overlay), filtered by the controller's declared profile, instead of against all 99 articles. Rigorous mode LLM-verifies every applicable disclosure against its most-relevant policy passages under a strict grader. Closed two v1.3 defects found along the way: the analyzer was grading notices against operational articles (false gaps), and whole-policy LLM prompts were timing out
 - Checklist versioned as data in [`data/checklists/`](data/checklists/); 170 passing tests
 
-### v2 — Surface (next)
-The shape of v2 is documented in [`docs/v1-plan.md`](docs/v1-plan.md)'s "Deferred to v2" section. The likely scope:
-- React + Tailwind dashboard
-- FastAPI orchestrator with **OAuth 2.1** (per-user identity, scopes, token expiry / revocation)
-- Assessment modes (compliance-gap / risk-gap detection) + reviewer queue
-- PDF report generation (`reportlab`) with auditable per-claim citations
-- Heavy guardrail upgrades: NER PII (Presidio / spaCy), classifier-based injection detection, `tiktoken` token counting
-- TLS in transit, IP allowlist, Docker Compose
-- Live public demo deployment
+</details>
 
 ---
 
@@ -313,4 +329,3 @@ This is a personal portfolio project; PRs aren't expected, but issues with frame
 ## Security
 
 If you find a security issue, please open a private issue rather than a public one. The threat model assumes the MCP server may receive adversarial inputs; the guardrails are the contract.
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
