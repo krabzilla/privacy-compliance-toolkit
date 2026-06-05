@@ -56,3 +56,7 @@ data/chroma/
 *.policy.txt
 *.policy.txt.txt
 *.notice-report.json
+
+*.policy.txt
+*.policy.txt.txt
+*.notice-report.json
