@@ -50,3 +50,9 @@ logs/
 .coverage
 htmlcov/
 coverage.xml
+
+# never commit the vector store, test policies, or generated reports
+data/chroma/
+*.policy.txt
+*.policy.txt.txt
+*.notice-report.json

@@ -115,7 +115,7 @@ Loaded files live in `data/frameworks/` -- four frameworks, 279 articles total:
 
 ```bash
 # 1. Clone & enter
-git clone https://github.com/<your-handle>/privacy-compliance-toolkit.git
+git clone https://github.com/krabzilla/privacy-compliance-toolkit.git
 cd privacy-compliance-toolkit
 
 # 2. Virtual env
