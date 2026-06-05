@@ -3,7 +3,7 @@
 > A security-by-design toolkit for privacy & compliance reasoning over GDPR, the Danish Data Protection Act, NIST CSF 2.0, and ISO/IEC 27701. Built as a portfolio project for privacy/legal-tech work.
 
 **Owner:** Kumari Rupali Bansal
-**Status:** v1 shipped — librarian → analyst, semantic retrieval + RAG with citation enforcement. See [Roadmap](#roadmap).
+**Status:** v1.5 shipped — semantic retrieval + RAG with citation enforcement, plus privacy-notice gap analysis against the GDPR Art. 12-14 disclosure checklist. See [Roadmap](#roadmap).
 **License:** MIT
 
 ---
@@ -16,8 +16,15 @@ The toolkit answers questions like:
 - *"Does this processing activity satisfy GDPR Art. 6(1)(b)?"*
 - *"Which NIST CSF 2.0 subcategories cover incident notification?"*
 - *"Where does the Danish DPA tighten GDPR's defaults?"*
+- *"Does this published privacy notice make every disclosure GDPR Arts. 13-14 require?"*
 
 It refuses to answer (loudly) when its confidence is below threshold, when the citation doesn't trace back to a framework row, or when the input looks like prompt injection.
+
+### Privacy-notice gap analysis (v1.5)
+
+Beyond answering questions, the toolkit audits a **published privacy notice** against the specific disclosures GDPR requires it to make (Arts. 13-14, framed by Art. 12), plus the Danish CPR overlay. The requirement set lives as versioned data in [`data/checklists/gdpr_notice_requirements.yaml`](data/checklists/gdpr_notice_requirements.yaml) and is filtered to the disclosures that actually apply to a controller's declared profile — a requirement whose condition is false is reported **N/A**, never a false gap.
+
+It deliberately does **not** grade a notice against all 99 GDPR articles. Most of the regulation imposes internal/operational duties (ROPA Art. 30, security Art. 32, DPIA Art. 35) that never belong in a public notice; scoring them produces false gaps. Each applicable requirement is scored semantically, then verified by the LLM against only the most relevant policy passages under a strict grading rubric (vague or boilerplate language scores *partial*, not *covered*). Run it via [`scripts/analyze_notice.py`](scripts/analyze_notice.py) or the `analyze_notice` MCP tool.
 
 ---
 
@@ -153,6 +160,17 @@ curl -H "Authorization: Bearer $PCT_MCP_API_KEY" http://127.0.0.1:8765/...
 See [docs/SECURITY.md](docs/SECURITY.md) for the auth gate, rate limiting, key
 rotation procedure, and what's deferred (encryption, monitoring, patching).
 
+### Analyze a privacy notice (no server needed)
+
+`analyze_notice.py` runs the Art. 12-14 checklist analyzer in-process — no MCP server, no API key:
+
+```bash
+python scripts/analyze_notice.py path/to/privacy_policy.txt \
+  --profile data_collected_directly,legal_basis_includes_consent,transfers_outside_eea,cpr_processed
+```
+
+Rigorous by default: every applicable disclosure is LLM-verified and each finding prints with its evidence quote, confidence, and source (LLM vs semantic). Add `--fast` for a quicker hybrid pass, or `--no-llm` for a semantic-only sweep. A full JSON report is written next to the policy file. Declarable profile facts are listed in the checklist YAML.
+
 ## Repository layout
 
 ```
@@ -163,6 +181,8 @@ privacy-compliance-toolkit/
 │   │   ├── danish_dpa.csv         # 25 Danish DPA provisions
 │   │   ├── nist_csf_2.csv         # 106 NIST CSF 2.0 subcategories
 │   │   └── iso_27701.csv          # 49 ISO 27701 PII controls
+│   ├── checklists/
+│   │   └── gdpr_notice_requirements.yaml  # v1.5 -- Art. 12-14 disclosure checklist
 │   └── schema.sql                 # SQLite, PG-compatible
 ├── src/
 │   ├── config.py                  # Secure defaults (env-only)
@@ -177,12 +197,16 @@ privacy-compliance-toolkit/
 │   ├── llm/                       # v1.2 -- LLM wrapper
 │   │   ├── client.py              # LLMClient Protocol, OllamaClient, FakeLLMClient
 │   │   └── prompts.py             # Structural injection defense
-│   ├── rag/                       # v1.1 + v1.2 -- the analyst layer
+│   ├── checklist/                 # v1.5 -- notice-requirement checklist
+│   │   └── loader.py              # YAML loader + org-profile applicability
+│   ├── rag/                       # v1.1+ -- the analyst layer
 │   │   ├── embeddings.py          # SentenceTransformerEmbedder, FakeEmbedder
 │   │   ├── vector_store.py        # ChromaDB wrapper, gateway-audited
-│   │   └── engine.py              # answer() pipeline w/ citation enforcement
+│   │   ├── engine.py              # answer() pipeline w/ citation enforcement
+│   │   ├── gap_analysis.py        # v1.3 -- policy gap analysis (full framework)
+│   │   └── notice_analysis.py     # v1.5 -- notice gap analysis (Art. 12-14)
 │   └── mcp_server/
-│       ├── server.py              # 5 FastMCP tools
+│       ├── server.py              # MCP tools (incl. analyze_policy, analyze_notice)
 │       ├── auth.py                # API-key gate (constant-time compare)
 │       ├── rate_limit.py          # Sliding-window in-memory limiter
 │       └── middleware.py          # Per-IP edge limit + per-key limit, audited
@@ -190,8 +214,10 @@ privacy-compliance-toolkit/
 │   ├── init_db.py
 │   ├── load_frameworks.py
 │   ├── index_frameworks.py        # v1.1 -- builds the Chroma vector index
+│   ├── analyze_policy.py          # v1.3 -- gap analysis via the MCP server
+│   ├── analyze_notice.py          # v1.5 -- notice checklist analysis (in-process)
 │   └── generate_api_key.py
-├── tests/                          # 139 passing, 6 documented xfails
+├── tests/                          # 170 passing, 6 documented xfails
 │   ├── test_logging_gateway.py
 │   ├── test_db.py
 │   ├── test_guardrails_input.py
@@ -206,7 +232,10 @@ privacy-compliance-toolkit/
 │   ├── test_semantic_search.py
 │   ├── test_llm_client.py
 │   ├── test_rag_engine.py         # the v1.2 hallucination-guard tests
-│   └── test_ask_compliance.py
+│   ├── test_ask_compliance.py
+│   ├── test_gap_analysis.py       # v1.3 policy gap analysis
+│   ├── test_notice_checklist.py   # v1.5 checklist loader + applicability
+│   └── test_notice_analysis.py    # v1.5 notice analyzer (with fakes)
 ├── docs/
 │   ├── SECURITY.md                # Threat model + what's deferred (with rationale)
 │   ├── SECURITY-REVIEW.md         # Adversarial review of v0; the v0.1 fixes
@@ -248,6 +277,13 @@ The librarian becomes an analyst. Free-form questions answered with citations th
 - 5 MCP tools, 4 frameworks, 279 articles, 139 passing tests, order-independent across randomized seeds
 - Plan, decisions made, things dropped, things deferred all recorded in [`docs/v1-plan.md`](docs/v1-plan.md)
 
+### v1.3-v1.5 — Gap analysis ✅ shipped
+The analyst learns to audit documents, not just answer questions.
+- **v1.3** — privacy-policy gap analysis (`analyze_policy` / `analyze_policy_all`): per-requirement covered/partial/gap findings with severity, evidence, and remediation, via hybrid semantic + LLM scoring
+- **v1.4** — local Streamlit demo UI (later removed to reduce attack surface for a public repo)
+- **v1.5** — privacy-**notice** gap analysis (`analyze_notice`): grades a published notice against the curated GDPR Art. 12-14 disclosure checklist (+ Danish CPR overlay), filtered by the controller's declared profile, instead of against all 99 articles. Rigorous mode LLM-verifies every applicable disclosure against its most-relevant policy passages under a strict grader. Closed two v1.3 defects found along the way: the analyzer was grading notices against operational articles (false gaps), and whole-policy LLM prompts were timing out
+- Checklist versioned as data in [`data/checklists/`](data/checklists/); 170 passing tests
+
 ### v2 — Surface (next)
 The shape of v2 is documented in [`docs/v1-plan.md`](docs/v1-plan.md)'s "Deferred to v2" section. The likely scope:
 - React + Tailwind dashboard
@@ -276,3 +312,4 @@ This is a personal portfolio project; PRs aren't expected, but issues with frame
 ## Security
 
 If you find a security issue, please open a private issue rather than a public one. The threat model assumes the MCP server may receive adversarial inputs; the guardrails are the contract.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
