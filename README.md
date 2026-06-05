@@ -216,6 +216,7 @@ privacy-compliance-toolkit/
 │   ├── index_frameworks.py        # v1.1 -- builds the Chroma vector index
 │   ├── analyze_policy.py          # v1.3 -- gap analysis via the MCP server
 │   ├── analyze_notice.py          # v1.5 -- notice checklist analysis (in-process)
+│   ├── ask.py                     # ask_compliance Q&A (in-process, grounded RAG)
 │   └── generate_api_key.py
 ├── tests/                          # 170 passing, 6 documented xfails
 │   ├── test_logging_gateway.py
