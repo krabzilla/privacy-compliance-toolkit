@@ -153,41 +153,6 @@ curl -H "Authorization: Bearer $PCT_MCP_API_KEY" http://127.0.0.1:8765/...
 See [docs/SECURITY.md](docs/SECURITY.md) for the auth gate, rate limiting, key
 rotation procedure, and what's deferred (encryption, monitoring, patching).
 
-### Try it through the web UI (v1.4)
-
-A Streamlit frontend exposes all 7 MCP tools through tabs in your browser --
-no Python needed by the user, just paste a policy and click. Useful both as a
-local demo and (next milestone) as the basis of a hosted public version.
-
-```bash
-# In one Git Bash window: the MCP server (see step 7 above)
-python -m src.mcp_server.server
-
-# In another Git Bash window: the Streamlit UI
-source .venv/Scripts/activate
-pip install streamlit              # one-time; included in requirements.txt
-streamlit run src/web/app.py
-```
-
-Streamlit auto-opens your browser at `http://localhost:8501`. The sidebar
-picks up `PCT_MCP_API_KEY` from the environment automatically.
-
-Seven tabs map 1:1 to the seven MCP tools: **Home** (intro), **Frameworks**
-(list_frameworks), **Look up article** (get_article), **Keyword search**
-(search_frameworks), **Semantic search** (semantic_search), **Ask compliance**
-(ask_compliance), and **Gap analysis** (analyze_policy / analyze_policy_all).
-The Gap-analysis tab is the headline -- paste a privacy policy, pick a
-framework, get per-requirement findings with severity, reasoning, and
-suggested remediation.
-
-Tests:
-
-```bash
-pytest -q
-```
-
----
-
 ## Repository layout
 
 ```
