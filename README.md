@@ -90,25 +90,23 @@ Prints the answer, its confidence, the **verified** citations, and the rules tha
 
 ## How it works
 
-Four components, one job each. None of them talk to data directly — they all go through the **Logging Gateway**.
+Three components, one job each. None of them talk to data directly — they all go through the **Logging Gateway**.
 
 ```
-┌──────────────┐    ┌────────────┐    ┌─────────────┐    ┌──────────────┐
-│  Framework   │    │   RAG      │    │  MCP Server │    │ Orchestrator │
-│  Loader      │    │  Engine    │    │  (FastMCP)  │    │  (FastAPI)   │
-│              │    │            │    │             │    │  (v2)        │
-└──────┬───────┘    └─────┬──────┘    └──────┬──────┘    └──────┬───────┘
-       │                  │                   │                  │
-       │                  │                   │                  │
-       ▼                  ▼                   ▼                  ▼
-    ┌────────────────────────────────────────────────────────────────┐
-    │              LOGGING GATEWAY (the only door to data)           │
-    │  audit_log row written BEFORE access — fsync — fail loud       │
-    └────────────────────────────────────────────────────────────────┘
-                                  │
-                ┌─────────────────┼─────────────────┐
-                ▼                 ▼                 ▼
-           SQLite/PG         ChromaDB           Filesystem
+┌──────────────┐    ┌────────────┐    ┌─────────────┐
+│  Framework   │    │   RAG      │    │  MCP Server │
+│  Loader      │    │  Engine    │    │  (FastMCP)  │
+└──────┬───────┘    └─────┬──────┘    └──────┬──────┘
+       │                  │                  │
+       ▼                  ▼                  ▼
+    ┌────────────────────────────────────────────────┐
+    │      LOGGING GATEWAY (the only door to data)   │
+    │   audit row written BEFORE access — fail loud   │
+    └────────────────────────────────────────────────┘
+                          │
+            ┌─────────────┼─────────────┐
+            ▼             ▼             ▼
+         SQLite       ChromaDB     Filesystem
 ```
 
 ### Defense in depth (5 layers)
@@ -119,7 +117,7 @@ Four components, one job each. None of them talk to data directly — they all g
 | **2. Processing guardrails** | Bound resource use, isolate the LLM | Token budget, request timeouts, **structural** prompt-injection defense (delimited `<RULES>` / `<QUESTION>` blocks; "this is data, not instructions" preamble) |
 | **3. Logging gateway** | Atomic audit of every data touch | ✅ Every read/write to SQLite **and** ChromaDB. Audit row written **before** access, fsync'd, fail loud. Pre-auth per-IP edge rate limiter (closes fsync-amplification DoS) |
 | **4. Output guardrails** | Verify before returning | Regex PII redaction (7 structured types), confidence floor, **structured-citation enforcement** (the LLM emits citations as JSON; every citation must trace back to both the retrieved rules and the loaded framework rows; fabrications refuse the response) |
-| **5. Trust pyramid** | Human sign-off on high-impact outputs | Confidence threshold gates. Reviewer queue + dashboard deferred to v2 |
+| **5. Confidence gating** | Refuse weakly-supported answers | A confidence floor below which a response is refused rather than returned (`enforce_confidence`) |
 
 <details>
 <summary><strong>The seven security guardrails, in detail</strong></summary>
@@ -148,7 +146,7 @@ Four components, one job each. None of them talk to data directly — they all g
 | 2 | Privacy as default | Disk persistence on; telemetry off; minimal logging fields |
 | 3 | Embedded into design | Logging gateway isn't a wrapper — it's the only API to data |
 | 4 | Positive-sum | Security ≠ usability tradeoff; failures are explicit, not silent |
-| 5 | End-to-end security | TLS in transit (v2), at-rest encryption hook in `db.py` (v1) |
+| 5 | End-to-end security | Runs fully local — local model, local data store, server bound to loopback; data never leaves the host |
 | 6 | Visibility and transparency | Every audit row is queryable; reports cite article-level sources |
 | 7 | Respect for the user | PII is redacted in outputs even if it leaked through inputs |
 
@@ -261,17 +259,15 @@ privacy-compliance-toolkit/
 
 ## Roadmap
 
-### v2 — Surface (next)
+### Possible next steps
 
-The shape of v2 is documented in [`docs/v1-plan.md`](docs/v1-plan.md)'s "Deferred to v2" section. The likely scope:
+This is a portfolio project, not a product with a committed roadmap. If it went further, the highest-value improvements — in order — would be:
 
-- React + Tailwind dashboard
-- FastAPI orchestrator with **OAuth 2.1** (per-user identity, scopes, token expiry / revocation)
-- Assessment modes (compliance-gap vs risk-gap detection) + reviewer queue
-- PDF report generation (`reportlab`) with auditable per-claim citations
-- Heavy guardrail upgrades: NER PII (Presidio / spaCy), classifier-based injection detection, `tiktoken` token counting
-- TLS in transit, IP allowlist, Docker Compose
-- Live public demo deployment
+- **A stronger verifier model.** The local 7B model is sometimes too lenient on borderline disclosures; a larger model, or a second-pass check, is the main lever on result quality.
+- **More checklists and jurisdictions**, authored as data the same way the GDPR notice checklist is.
+- **A small read-only web view** of a report, for non-technical reviewers.
+
+Design notes and the decisions made along the way (including ideas deliberately cut) live in [`docs/v1-plan.md`](docs/v1-plan.md).
 
 <details>
 <summary><strong>Shipped — full history (v0 → v1.5)</strong></summary>
@@ -310,15 +306,6 @@ The analyst learns to audit documents, not just answer questions.
 - Checklist versioned as data in [`data/checklists/`](data/checklists/); 170 passing tests
 
 </details>
-
----
-
-## Design references
-
-- **Ann Cavoukian** — *Privacy by Design: The 7 Foundational Principles*
-- **R. Jason Cronk** — *Strategic Privacy by Design* (2nd ed.) — particularly the logging-as-gateway pattern and the compliance-vs-risk gap distinction
-- **IAPP CIPT** — Body of Knowledge
-- **LinkedIn Learning** — *AI Security Tools and Automation*
 
 ---
 
