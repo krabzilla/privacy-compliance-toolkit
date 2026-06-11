@@ -20,7 +20,7 @@ It does three things:
 
 ### Privacy-notice gap analysis (v1.5)
 
-The toolkit audits a **published privacy notice** against the specific disclosures GDPR requires it to make (Arts. 13-14, framed by Art. 12), plus the Danish CPR overlay. The requirement set lives as versioned data in [`data/checklists/gdpr_notice_requirements.yaml`](data/checklists/gdpr_notice_requirements.yaml) and is filtered to the disclosures that actually apply to a controller's declared profile — a requirement whose condition is false is reported **N/A**, never a false gap.
+The toolkit audits a **published privacy notice** against the specific disclosures GDPR requires it to make (Arts. 13-14, framed by Art. 12), plus the Danish CPR overlay. The checklist is versioned data ([`gdpr_notice_requirements.yaml`](data/checklists/gdpr_notice_requirements.yaml)). Not every disclosure applies to every organisation, so each requirement carries a condition. You declare a few facts about the organisation — does it transfer data outside the EEA? rely on consent? have a Data Protection Officer? — and the tool grades only the disclosures that actually apply; the rest are marked **N/A**. That stops it flagging, say, *"missing DPO contact details"* against a company that has no DPO and isn't required to name one — a complaint that would be wrong, because the disclosure was never required in the first place.
 
 It deliberately does **not** grade a notice against all 99 GDPR articles. Most of the regulation imposes internal/operational duties (ROPA Art. 30, security Art. 32, DPIA Art. 35) that never belong in a public notice; scoring them produces false gaps. Each applicable requirement is scored semantically, then verified by the LLM against only the most relevant policy passages under a strict grading rubric (vague or boilerplate language scores *partial*, not *covered*). Run it via [`scripts/analyze_notice.py`](scripts/analyze_notice.py) or the `analyze_notice` MCP tool.
 
@@ -144,6 +144,10 @@ A fourth, **structural** prompt-injection defence runs inside every prompt rathe
 ---
 
 ## Frameworks
+
+**Why these exist.** The CSVs are the toolkit's knowledge base — the corpus the Q&A, semantic-search, and article-lookup tools retrieve from, and the reference set the citation verifier checks every answer against (a citation that isn't a real row here is refused). They are deliberately the *whole* regulation, because the toolkit also answers questions *about* it.
+
+They are **not** what the privacy-notice analyzer grades against — that uses the curated GDPR Art. 12–14 checklist in [`data/checklists/`](data/checklists/), because a public notice should be judged on the disclosures it must make, not against all 99 articles. (Loading the full corpus is what lets `ask_compliance` discuss Art. 30 while the notice analyzer correctly *ignores* it.)
 
 CSV schema, identical across frameworks:
 
