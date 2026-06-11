@@ -69,6 +69,8 @@ See [docs/SECURITY.md](docs/SECURITY.md) for the auth gate, rate limiting, key r
 
 ### Analyze a privacy notice (no server needed)
 
+> The MCP server (step 7) is the API surface — it exposes these tools so an AI agent or another program can call them over the network, with auth and audit at the boundary. The scripts below skip all that and call the same engine directly, for a quick local run.
+
 `analyze_notice.py` runs the Art. 12-14 checklist analyzer in-process — no MCP server, no API key:
 
 ```bash
