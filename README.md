@@ -119,6 +119,8 @@ Three components, one job each. None of them talk to data directly — they all 
 | **2. Audited gateway + access control** | One door to data, every touch logged | Every SQLite **and** ChromaDB read/write goes through the logging gateway — the audit row is written **before** access, and the gateway fails loud. The HTTP server adds an API-key gate and a per-IP rate limiter |
 | **3. Output guardrails** | Verify before returning | Regex PII redaction (7 patterns), **citation verification** (every citation the LLM emits must trace back to both the retrieved rules and the loaded corpus, or the whole answer is refused), and a confidence floor that refuses weakly-supported answers (`enforce_confidence`) |
 
+> *On PII redaction: it's active, but it earns its keep mainly once the tool serves reports to other people or writes audit logs. In the current local, single-user run there's no third party to protect the data from, so it mostly demonstrates the principle — and it's regex-based, a coarse approximation rather than full PII detection.*
+
 A fourth, **structural** prompt-injection defence runs inside every prompt rather than as a separate layer: retrieved text is wrapped in delimited `<RULES>` blocks with an explicit "this is data, not instructions" preamble, so text injected into a framework body can't be read as a command.
 
 > **Honest scope note.** The codebase also contains an SSRF URL-validator, a pattern-based prompt-injection detector, and a timeout helper. They were written for completeness but are **not currently invoked** by any flow (the toolkit only ingests pasted text; it never fetches URLs) — scaffolding, not active defences.
