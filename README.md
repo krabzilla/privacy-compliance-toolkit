@@ -3,7 +3,7 @@
 > A security-by-design toolkit for privacy & compliance reasoning over GDPR, the Danish Data Protection Act, NIST CSF 2.0, and ISO/IEC 27701. Built as a portfolio project for privacy/legal-tech work.
 
 **Owner:** Kumari Rupali Bansal
-**Status:** v1.5 shipped — semantic retrieval + RAG with citation enforcement, plus privacy-notice gap analysis against the GDPR Art. 12-14 disclosure checklist. See [Roadmap](#roadmap).
+**Status:** v1.5 shipped — semantic retrieval + RAG with citation enforcement, plus privacy-notice gap analysis against the GDPR Arts. 12–14 disclosure checklist. See [Roadmap](#roadmap).
 **License:** MIT
 
 ---
@@ -15,12 +15,12 @@ Most "AI for compliance" demos wire an LLM directly to a vector store and call i
 It does three things:
 
 - **Answers compliance questions** with citations that provably trace back to the loaded frameworks (it refuses, loudly, when confidence is low or a citation can't be verified). Try: *"Which NIST CSF 2.0 subcategories cover incident notification?"* · *"Where does the Danish DPA tighten GDPR's defaults?"* · *"Does this processing activity satisfy GDPR Art. 6(1)(b)?"*
-- **Audits a published privacy notice** against the specific disclosures GDPR Arts. 12-14 require (see below).
+- **Audits a published privacy notice** against the specific disclosures GDPR Arts. 12–14 require (see below).
 - **Treats the LLM as untrusted** — input, processing, and output guardrails wrap every call.
 
 ### Privacy-notice gap analysis (v1.5)
 
-The toolkit audits a **published privacy notice** against the specific disclosures GDPR requires it to make (Arts. 13-14, framed by Art. 12), plus the Danish CPR overlay. The checklist is versioned data ([`gdpr_notice_requirements.yaml`](data/checklists/gdpr_notice_requirements.yaml)). Not every disclosure applies to every organisation, so each requirement carries a condition. You declare a few facts about the organisation — does it transfer data outside the EEA? rely on consent? have a Data Protection Officer? — and the tool grades only the disclosures that actually apply; the rest are marked **N/A**. That stops it flagging, say, *"missing DPO contact details"* on a notice where you've declared there is no DPO. Important nuance: that call comes from the fact *you* supplied, not from the tool's own judgment — it checks whether the notice makes the disclosures that apply *given your inputs*. It does **not** decide the upstream legal question of whether you were *required* to appoint a DPO in the first place (GDPR Art. 37) — that is an assessment of how the organisation operates, not of the notice text, and the tool trusts what you tell it.
+The toolkit audits a **published privacy notice** against the specific disclosures GDPR requires it to make (Arts. 12–14), plus the Danish CPR overlay. The checklist is versioned data ([`gdpr_notice_requirements.yaml`](data/checklists/gdpr_notice_requirements.yaml)). Not every disclosure applies to every organisation, so each requirement carries a condition. You declare a few facts about the organisation — does it transfer data outside the EEA? rely on consent? have a Data Protection Officer? — and the tool grades only the disclosures that actually apply; the rest are marked **N/A**. That stops it flagging, say, *"missing DPO contact details"* on a notice where you've declared there is no DPO. Important nuance: that call comes from the fact *you* supplied, not from the tool's own judgment — it checks whether the notice makes the disclosures that apply *given your inputs*. It does **not** decide the upstream legal question of whether you were *required* to appoint a DPO in the first place (GDPR Art. 37) — that is an assessment of how the organisation operates, not of the notice text, and the tool trusts what you tell it.
 
 It deliberately does **not** grade a notice against all 99 GDPR articles. Most of the regulation imposes internal/operational duties (ROPA Art. 30, security Art. 32, DPIA Art. 35) that never belong in a public notice; scoring them produces false gaps. Each applicable requirement is scored semantically, then verified by the LLM against only the most relevant policy passages under a strict grading rubric (vague or boilerplate language scores *partial*, not *covered*). Run it via [`scripts/analyze_notice.py`](scripts/analyze_notice.py) or the `analyze_notice` MCP tool.
 
@@ -71,7 +71,7 @@ See [docs/SECURITY.md](docs/SECURITY.md) for the auth gate, rate limiting, key r
 
 > The MCP server (step 7) is the API surface — it exposes these tools so an AI agent or another program can call them over the network, with auth and audit at the boundary. The scripts below skip all that and call the same engine directly, for a quick local run.
 
-`analyze_notice.py` runs the Art. 12-14 checklist analyzer in-process — no MCP server, no API key:
+`analyze_notice.py` runs the Arts. 12–14 checklist analyzer in-process — no MCP server, no API key:
 
 ```bash
 python scripts/analyze_notice.py path/to/privacy_policy.txt \
@@ -151,7 +151,7 @@ A fourth, **structural** prompt-injection defence runs inside every prompt rathe
 
 **Why these exist.** The CSVs are the toolkit's knowledge base — the corpus the Q&A, semantic-search, and article-lookup tools retrieve from, and the reference set the citation verifier checks every answer against (a citation that isn't a real row here is refused). They are deliberately the *whole* regulation, because the toolkit also answers questions *about* it.
 
-They are **not** what the privacy-notice analyzer grades against — that uses the curated GDPR Art. 12–14 checklist in [`data/checklists/`](data/checklists/), because a public notice should be judged on the disclosures it must make, not against all 99 articles. (Loading the full corpus is what lets `ask_compliance` discuss Art. 30 while the notice analyzer correctly *ignores* it.)
+They are **not** what the privacy-notice analyzer grades against — that uses the curated GDPR Arts. 12–14 checklist in [`data/checklists/`](data/checklists/), because a public notice should be judged on the disclosures it must make, not against all 99 articles. (Loading the full corpus is what lets `ask_compliance` discuss Art. 30 while the notice analyzer correctly *ignores* it.)
 
 CSV schema, identical across frameworks:
 
@@ -185,15 +185,15 @@ privacy-compliance-toolkit/
 │   │   ├── nist_csf_2.csv         # 106 NIST CSF 2.0 subcategories
 │   │   └── iso_27701.csv          # 49 ISO 27701 PII controls
 │   ├── checklists/
-│   │   └── gdpr_notice_requirements.yaml  # v1.5 -- Art. 12-14 disclosure checklist
-│   └── schema.sql                 # SQLite, PG-compatible
+│   │   └── gdpr_notice_requirements.yaml  # v1.5 -- Arts. 12–14 disclosure checklist
+│   └── schema.sql                 # SQLite
 ├── src/
 │   ├── config.py                  # Secure defaults (env-only)
 │   ├── db.py                      # Parameterized queries only
 │   ├── logging_gateway.py         # The ONLY door to data
 │   ├── guardrails/
-│   │   ├── input.py               # URL/SSRF (DNS-resolved), size, sanitization
-│   │   ├── processing.py          # Timeout, token budget, injection detect
+│   │   ├── input.py               # Text sanitization
+│   │   ├── processing.py          # Token budget
 │   │   └── output.py              # PII redaction, confidence, citation verifier
 │   ├── frameworks/
 │   │   └── loader.py              # CSV → DB ingest, gateway-audited
@@ -207,7 +207,7 @@ privacy-compliance-toolkit/
 │   │   ├── vector_store.py        # ChromaDB wrapper, gateway-audited
 │   │   ├── engine.py              # answer() pipeline w/ citation enforcement
 │   │   ├── gap_analysis.py        # v1.3 -- policy gap analysis (full framework)
-│   │   └── notice_analysis.py     # v1.5 -- notice gap analysis (Art. 12-14)
+│   │   └── notice_analysis.py     # v1.5 -- notice gap analysis (Arts. 12–14)
 │   └── mcp_server/
 │       ├── server.py              # MCP tools (incl. analyze_policy, analyze_notice)
 │       ├── auth.py                # API-key gate (constant-time compare)
@@ -220,10 +220,10 @@ privacy-compliance-toolkit/
 │   ├── analyze_policy.py          # v1.3 -- gap analysis via the MCP server
 │   ├── analyze_notice.py          # v1.5 -- notice checklist analysis (in-process)
 │   ├── ask.py                     # ask_compliance Q&A (in-process, grounded RAG)
-│   └── generate_api_key.py
+│   ├── generate_api_key.py
+│   └── try_tools.py               # ad-hoc client: calls every MCP tool end-to-end
 ├── tests/                          # 170 passing, 6 documented xfails
 │   ├── test_logging_gateway.py
-│   ├── test_db.py
 │   ├── test_guardrails_input.py
 │   ├── test_guardrails_output.py
 │   ├── test_framework_loader.py
@@ -271,9 +271,9 @@ Design notes and the decisions made along the way (including ideas deliberately 
 
 ### v0 — Foundation ✅ shipped
 - Repository structure, README, license
-- SQLite schema (PostgreSQL-ready)
+- SQLite schema
 - Logging gateway (atomic audit-before-access)
-- Guardrails — input (SSRF/size/sanitize), processing (timeout/token/injection), output (regex PII/confidence/citation)
+- Guardrails — input (sanitize), processing (token budget), output (regex PII/confidence/citation)
 - GDPR CSV with all 99 articles
 - Framework loader with schema validation, gateway-audited
 - FastMCP server: `list_frameworks`, `get_article`, `search_frameworks`
@@ -299,12 +299,22 @@ The librarian becomes an analyst. Free-form questions answered with citations th
 The analyst learns to audit documents, not just answer questions.
 - **v1.3** — privacy-policy gap analysis (`analyze_policy` / `analyze_policy_all`): per-requirement covered/partial/gap findings with severity, evidence, and remediation, via hybrid semantic + LLM scoring
 - **v1.4** — local Streamlit demo UI (later removed to reduce attack surface for a public repo)
-- **v1.5** — privacy-**notice** gap analysis (`analyze_notice`): grades a published notice against the curated GDPR Art. 12-14 disclosure checklist (+ Danish CPR overlay), filtered by the controller's declared profile, instead of against all 99 articles. Rigorous mode LLM-verifies every applicable disclosure against its most-relevant policy passages under a strict grader. Closed two v1.3 defects found along the way: the analyzer was grading notices against operational articles (false gaps), and whole-policy LLM prompts were timing out
+- **v1.5** — privacy-**notice** gap analysis (`analyze_notice`): grades a published notice against the curated GDPR Arts. 12–14 disclosure checklist (+ Danish CPR overlay), filtered by the controller's declared profile, instead of against all 99 articles. Rigorous mode LLM-verifies every applicable disclosure against its most-relevant policy passages under a strict grader. Closed two v1.3 defects found along the way: the analyzer was grading notices against operational articles (false gaps), and whole-policy LLM prompts were timing out
 - Checklist versioned as data in [`data/checklists/`](data/checklists/); 170 passing tests
 
 </details>
 
 ---
+
+## Limitations
+
+The "toolkit" in the name is literal: these are tools that *support* privacy-compliance work — surfacing gaps, pointing to the relevant articles, grounding answers in source text. They help a competent person work faster; they do **not** *certify* compliance, and every output is a starting point for human review, not a verdict. Being explicit about where the lines are:
+
+- **It checks the notice, not the organisation.** The analyzer judges whether a *document* makes the disclosures it should — it cannot see whether the organisation actually does what the notice says, nor decide upstream obligations (e.g. whether a DPO was *required* under Art. 37). It's a document checker, not a compliance audit.
+- **Applicability trusts what you declare.** Which disclosures apply is decided from the facts you pass in the org profile; the tool takes them at face value and doesn't verify them. Wrong inputs produce wrong N/A calls.
+- **The verifier model is the quality ceiling.** Grading runs on a local 7B model (Mistral), which is sometimes too lenient on borderline disclosures — it occasionally marks *covered* where a strict reviewer would say *partial*. Every verdict ships its evidence quote precisely so a human can catch this; treat *covered* as "worth a second look," not a guarantee. A stronger model would raise the ceiling.
+- **The framework text is author-drafted summaries, not law.** The CSV and checklist bodies are plain-language paraphrases for tooling, not the official regulation text (see the source disclaimer). For anything real, verify against the authoritative source.
+- **PII redaction is coarse.** It's regex-based — it catches obvious patterns (emails, card numbers) but misses names and free-text PII and can over-redact. It is not a substitute for proper PII tooling.
 
 ## Contributing
 
